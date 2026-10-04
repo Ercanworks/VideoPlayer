@@ -1,0 +1,227 @@
+<Window x:Class="Oynatici.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Oynatici"
+        Title="Video Player" Width="1100" Height="650" MinWidth="360" MinHeight="220"
+        Background="Black" AllowDrop="True" UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <!-- Windows'un başlık çubuğu yok; pencere düğmeleri videonun üstünde, kontrollerle birlikte gizlenir -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0,0,0,1"
+                      CornerRadius="0" UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Grid x:Name="Root" Background="Black">
+        <!-- Motorun görüntüyü çizdiği yerel pencere -->
+        <local:VideoHost x:Name="Video" />
+
+        <!-- Kontroller. Video ayrı bir yerel pencere olduğu için WPF öğeleri üstünde görünemez;
+             bu ızgara açılışta videonun üstündeki saydam bir pencereye taşınır.
+             Neredeyse saydam arka plan: videonun üstündeki tıklamaları yakalamak için -->
+        <Grid x:Name="Overlay" Background="#01000000" AllowDrop="True"
+              TextElement.Foreground="White" TextElement.FontFamily="Segoe UI">
+
+            <!-- Tutup çekerken videonun yerine geçen, parmağı takip eden kare görüntüsü -->
+            <Grid x:Name="SwipeLayer" Background="Black" ClipToBounds="True" IsHitTestVisible="False"
+                  Visibility="Collapsed">
+                <Image x:Name="SwipeImage" Stretch="Uniform" RenderTransformOrigin="0.5,0.5"
+                       RenderOptions.BitmapScalingMode="LowQuality">
+                    <Image.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="SwipeScale" />
+                            <TranslateTransform x:Name="SwipeShift" />
+                        </TransformGroup>
+                    </Image.RenderTransform>
+                </Image>
+            </Grid>
+
+            <!-- Açılış ekranı -->
+            <StackPanel x:Name="Welcome" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="56"
+                           HorizontalAlignment="Center" Opacity="0.8" />
+                <TextBlock Text="Bir videoyu buraya sürükleyin" FontSize="20" Margin="0,18,0,6"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="veya" FontSize="14" Opacity="0.6" HorizontalAlignment="Center" />
+                <Button x:Name="OpenButton" Margin="0,10,0,0" HorizontalAlignment="Center" Height="36"
+                        Focusable="False" Cursor="Hand" Click="OpenButton_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bg" Background="{DynamicResource AccentBrush}" CornerRadius="4" Padding="24,0">
+                                <TextBlock Text="Dosya seç" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bg" Property="Opacity" Value="0.85" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+
+            <!-- Ortada kısa süre görünen bildirim (ses, ileri sarma vb.) -->
+            <Border x:Name="Toast" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="#B3000000" CornerRadius="8" Padding="22,14" Opacity="0" IsHitTestVisible="False">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="ToastIcon" FontFamily="{StaticResource IconFont}" FontSize="22" VerticalAlignment="Center" />
+                    <TextBlock x:Name="ToastText" FontSize="16" Margin="12,0,0,0" VerticalAlignment="Center"
+                               MaxWidth="420" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+
+            <!-- Üst şerit: pencereyi taşımak için tutulan alan ve pencere düğmeleri -->
+            <Grid x:Name="TopBar" VerticalAlignment="Top" Height="48">
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#80000000" Offset="0" />
+                        <GradientStop Color="#01000000" Offset="1" />
+                    </LinearGradientBrush>
+                </Grid.Background>
+                <StackPanel x:Name="CaptionButtons" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="&#xE921;"
+                            ToolTip="Simge durumuna küçült" Click="MinButton_Click" />
+                    <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;"
+                            ToolTip="Ekranı kapla" Click="MaxButton_Click" />
+                    <Button x:Name="CloseButton" Style="{StaticResource CaptionButton}" Content="&#xE8BB;"
+                            ToolTip="Kapat" Tag="#E81123" Click="CloseButton_Click" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Alt kontrol çubuğu -->
+            <Grid x:Name="Controls" VerticalAlignment="Bottom">
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#00000000" Offset="0" />
+                        <GradientStop Color="#B3000000" Offset="0.5" />
+                        <GradientStop Color="#D9000000" Offset="1" />
+                    </LinearGradientBrush>
+                </Grid.Background>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Video adı (Filmler ve TV gibi kontrollerin üstünde) -->
+                <TextBlock x:Name="TitleText" Grid.Row="1" Margin="24,0,24,2" FontSize="16"
+                           TextTrimming="CharacterEllipsis" />
+
+                <!-- İlerleme çubuğu ve süreler -->
+                <Grid Grid.Row="2" Margin="20,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TimeText" Text="0:00" FontSize="12" VerticalAlignment="Center" MinWidth="44" />
+                    <Grid Grid.Column="1" Margin="10,0">
+                        <Slider x:Name="Seek" Style="{StaticResource FlatSlider}" Minimum="0" Maximum="1"
+                                IsEnabled="False" />
+                        <!-- Üstüne gelince gösterilen zaman -->
+                        <Canvas IsHitTestVisible="False" ClipToBounds="False">
+                            <Border x:Name="SeekTip" Background="{StaticResource FlyoutBrush}" CornerRadius="4"
+                                    Padding="8,3" Canvas.Top="-30" Visibility="Collapsed">
+                                <TextBlock x:Name="SeekTipText" FontSize="12" />
+                            </Border>
+                        </Canvas>
+                    </Grid>
+                    <TextBlock x:Name="LengthText" Grid.Column="2" Text="0:00" FontSize="12" VerticalAlignment="Center"
+                               MinWidth="44" TextAlignment="Right" Cursor="Hand"
+                               ToolTip="Kalan süre / toplam süre"
+                               MouseLeftButtonUp="LengthText_Click" />
+                </Grid>
+
+                <!-- Düğmeler -->
+                <Grid Grid.Row="3" Margin="12,2,12,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="VolumeButton" Style="{StaticResource IconButton}" Content="&#xE995;"
+                                ToolTip="Ses (Yukarı/Aşağı ok)" Click="VolumeButton_Click" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="PrevButton" Style="{StaticResource IconButton}" Content="&#xE892;"
+                                ToolTip="Önceki video (P)" Click="PrevButton_Click" />
+                        <Button x:Name="BackButton" Style="{StaticResource IconButton}" Content="&#xED3C;" FontSize="20"
+                                ToolTip="10 saniye geri (Sol ok)" Click="BackButton_Click" Margin="8,0" />
+                        <Button x:Name="PlayButton" Style="{StaticResource PlayButton}" Content="&#xE768;"
+                                ToolTip="Oynat (Boşluk)" Click="PlayButton_Click" />
+                        <Button x:Name="ForwardButton" Style="{StaticResource IconButton}" Content="&#xED3D;" FontSize="20"
+                                ToolTip="30 saniye ileri (Sağ ok)" Click="ForwardButton_Click" Margin="8,0" />
+                        <Button x:Name="NextButton" Style="{StaticResource IconButton}" Content="&#xE893;"
+                                ToolTip="Sonraki video (N)" Click="NextButton_Click" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="MiniButton" Style="{StaticResource IconButton}" Content="&#xE8A7;"
+                                ToolTip="Mini görünümde oynat" Click="MiniButton_Click" />
+                        <Button x:Name="FullButton" Style="{StaticResource IconButton}" Content="&#xE740;"
+                                ToolTip="Tam ekran (F11 / çift tık)" Click="FullButton_Click" />
+                        <Button x:Name="MoreButton" Style="{StaticResource IconButton}" Content="&#xE712;"
+                                ToolTip="Diğer seçenekler" Click="MoreButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- Ses menüsü -->
+            <Popup x:Name="VolumePopup" Placement="Top" VerticalOffset="-6" StaysOpen="False"
+                   AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Style="{StaticResource FlyoutBorder}" Padding="6,4,14,4">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="MuteButton" Style="{StaticResource IconButton}" Content="&#xE995;"
+                                ToolTip="Sesi kapat (M)" Click="MuteButton_Click" />
+                        <Slider x:Name="VolumeSlider" Style="{StaticResource FlatSlider}" Width="180" Minimum="0" Maximum="100"
+                                VerticalAlignment="Center" Margin="6,0" ValueChanged="VolumeSlider_ValueChanged" />
+                        <TextBlock x:Name="VolumeText" Text="80" Foreground="White" FontSize="14" MinWidth="28"
+                                   TextAlignment="Right" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Diğer seçenekler menüsü -->
+            <Popup x:Name="MorePopup" Placement="Top" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Style="{StaticResource FlyoutBorder}" TextElement.Foreground="White">
+                    <StackPanel MinWidth="250">
+                        <TextBlock Text="Oynatma hızı" FontSize="12" Opacity="0.6" Margin="12,8,12,4" />
+                        <WrapPanel x:Name="SpeedPanel" Margin="8,0,8,4" />
+                        <Separator Background="#33FFFFFF" Margin="4,6" />
+                        <TextBlock Text="Video bitince" FontSize="12" Opacity="0.6" Margin="12,4,12,4" />
+                        <Button x:Name="EndStop" Style="{StaticResource MenuButton}" Tag="Stop" Click="EndAction_Click" />
+                        <Button x:Name="EndNext" Style="{StaticResource MenuButton}" Tag="Next" Click="EndAction_Click" />
+                        <Button x:Name="EndRepeat" Style="{StaticResource MenuButton}" Tag="Repeat" Click="EndAction_Click" />
+                        <Separator Background="#33FFFFFF" Margin="4,6" />
+                        <TextBlock Text="Oynatma motoru" FontSize="12" Opacity="0.6" Margin="12,4,12,4" />
+                        <Button x:Name="EngineMpv" Style="{StaticResource MenuButton}" Tag="mpv" Click="Engine_Click" />
+                        <Button x:Name="EngineVlc" Style="{StaticResource MenuButton}" Tag="vlc" Click="Engine_Click" />
+                        <Separator Background="#33FFFFFF" Margin="4,6" />
+                        <Button Style="{StaticResource MenuButton}" Click="MenuOpen_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8E5;" FontFamily="{StaticResource IconFont}" Width="28" VerticalAlignment="Center" />
+                                <TextBlock Text="Dosya aç…" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ShowInFolderButton" Style="{StaticResource MenuButton}" Click="ShowInFolder_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE838;" FontFamily="{StaticResource IconFont}" Width="28" VerticalAlignment="Center" />
+                                <TextBlock Text="Dosya konumunu aç" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource MenuButton}" Click="MakeDefault_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" Width="28" VerticalAlignment="Center" />
+                                <TextBlock Text="Varsayılan video oynatıcısı yap" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
+    </Grid>
+</Window>

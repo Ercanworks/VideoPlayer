@@ -1,0 +1,13 @@
+# Derleme çıktıları
+bin/
+obj/
+Uygulama/
+Uygulama_yeni/
+*.user
+.vs/
+
+# mpv kütüphanesi GitHub'ın 100 MB sınırını aşıyor; tools/libmpv-indir.ps1 ile indirilir
+lib/libmpv-2.dll
+
+# Yerel test dosyaları
+test_videolar/
