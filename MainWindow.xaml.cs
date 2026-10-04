@@ -196,8 +196,8 @@ public partial class MainWindow : Window
         _player.Open(path);
 
         Title = Path.GetFileName(path);
+        HideTitle(instant: true);
         BigTitle.Text = Path.GetFileNameWithoutExtension(path);
-        HideTitle();
         Welcome.Visibility = Visibility.Collapsed;
         Seek.IsEnabled = true;
         UpdatePlaylistButtons();
@@ -493,11 +493,17 @@ public partial class MainWindow : Window
             EasingFunction = new QuadraticEase(),
         });
 
+    // Filmler ve TV'den ölçüldü: yazılar ve kontroller 300 ms'de belirir, 700 ms'de söner, doğrusal
+    const int FadeInMs = 300, FadeOutMs = 700;
+
+    static void FadeLinear(UIElement element, double to, int ms) =>
+        element.BeginAnimation(OpacityProperty, new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms)));
+
     // ---------------------------------------------------------------- Video adı (duraklatılmışken)
 
     // Filmler ve TV gibi: video oynarken ad hiç görünmez; duraklatılmışken fare oynayınca veya
     // duraklatınca ~2,8 sn görünür, alttaki gölge de o sırada koyulaşır
-    readonly DispatcherTimer _titleTimer = new() { Interval = TimeSpan.FromMilliseconds(2800) };
+    readonly DispatcherTimer _titleTimer = new() { Interval = TimeSpan.FromMilliseconds(3000) }; // belirmenin başından sönmenin başına
     bool _titleVisible;
 
     void ShowTitle()
@@ -507,22 +513,24 @@ public partial class MainWindow : Window
         if (!_titleVisible)
         {
             _titleVisible = true;
-            Fade(BigTitle, 1, 150);
-            Fade(TitleShade, 1, 150);
-            Fade(ControlsShade, 0, 150);
+            FadeLinear(BigTitle, 1, FadeInMs);
+            FadeLinear(TitleShade, 1, FadeInMs);
+            FadeLinear(ControlsShade, 0, FadeInMs);
         }
         _titleTimer.Stop();
         _titleTimer.Start();
     }
 
-    void HideTitle()
+    /// <param name="instant">Yeni video açılırken eski ad solmadan hemen kalksın.</param>
+    void HideTitle(bool instant = false)
     {
         _titleTimer.Stop();
         if (!_titleVisible) return;
         _titleVisible = false;
-        Fade(BigTitle, 0, 120);
-        Fade(TitleShade, 0, 120);
-        Fade(ControlsShade, 1, 120);
+        var ms = instant ? 0 : FadeOutMs;
+        FadeLinear(BigTitle, 0, ms);
+        FadeLinear(TitleShade, 0, ms);
+        FadeLinear(ControlsShade, 1, ms);
     }
 
     /// <summary>Tam ekranda Filmler ve TV kontrolleri 15 px yukarı alıyor ve adı büyütüyor.</summary>
@@ -543,8 +551,8 @@ public partial class MainWindow : Window
             _controlsVisible = true;
             Controls.IsHitTestVisible = true;
             CaptionButtons.IsHitTestVisible = true;
-            Fade(Controls, 1, 150);
-            Fade(TopBar, 1, 150);
+            FadeLinear(Controls, 1, FadeInMs);
+            FadeLinear(TopBar, 1, FadeInMs);
             Overlay.Cursor = null;
         }
         RestartHideTimer();
@@ -566,8 +574,8 @@ public partial class MainWindow : Window
         _controlsVisible = false;
         Controls.IsHitTestVisible = false;
         CaptionButtons.IsHitTestVisible = false;
-        Fade(Controls, 0, 300);
-        Fade(TopBar, 0, 300);
+        FadeLinear(Controls, 0, FadeOutMs);
+        FadeLinear(TopBar, 0, FadeOutMs);
         SeekTip.Visibility = Visibility.Collapsed;
         // Fare videonun üstündeyse imleci de gizle
         if (Overlay.IsMouseOver) Overlay.Cursor = Cursors.None;
@@ -989,7 +997,7 @@ public partial class MainWindow : Window
         var extra = _mini ? Visibility.Collapsed : Visibility.Visible;
         BackButton.Visibility = ForwardButton.Visibility = extra;
         FullButton.Visibility = MoreButton.Visibility = VolumeButton.Visibility = extra;
-        if (_mini) HideTitle();
+        if (_mini) HideTitle(instant: true);
         MiniButton.Content = _mini ? "\uE73F" : "\uE8A7";
         MiniButton.ToolTip = _mini ? L.ExitMiniTip : L.MiniTip;
         UpdateWindowButtons();
