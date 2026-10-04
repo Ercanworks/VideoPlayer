@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
@@ -19,11 +20,15 @@ public sealed class SliderDrag
 
     readonly Slider _slider;
     double _lastX;
+    Point _downPos;
 
     /// <summary>Açıksa imleç çubuktan yukarı kaldırıldıkça değer daha yavaş değişir (ince ayar).</summary>
     public bool Precise { get; set; }
 
     public bool IsDragging { get; private set; }
+
+    /// <summary>Basıldıktan sonra fare gerçekten yer değiştirdi mi (WPF hareketsiz de olay gönderiyor).</summary>
+    public bool HasMoved { get; private set; }
     public event Action? Started;
     public event Action<double>? Moved;
     public event Action<double>? Completed;
@@ -58,6 +63,8 @@ public sealed class SliderDrag
 
         var x = e.GetPosition(_slider).X;
         _lastX = x;
+        _downPos = e.GetPosition(_slider);
+        HasMoved = false;
         // Tutamağın üstüne basıldıysa atlama; olduğu yerden ince ayar yapılabilsin
         if (!(Precise && Math.Abs(x - ThumbX) <= ThumbHalf)) SetValue(ValueAt(x));
         else Moved?.Invoke(_slider.Value);
@@ -67,6 +74,7 @@ public sealed class SliderDrag
     void OnMove(object sender, MouseEventArgs e)
     {
         if (!IsDragging) return;
+        if ((e.GetPosition(_slider) - _downPos).Length > 1) HasMoved = true;
         var x = e.GetPosition(_slider).X;
         if (!Precise)
         {

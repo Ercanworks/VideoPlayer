@@ -135,8 +135,7 @@ public partial class MainWindow : Window
         _scrubTimer.Tick += (_, _) => { if (_seekDrag.IsDragging) ScrubTo(_scrubTarget); else _scrubTimer.Stop(); };
         _seekDrag.Moved += OnSeekDragMoved;
         _seekDrag.Completed += OnSeekDragCompleted;
-        Seek.MouseMove += Seek_MouseMove;
-        Seek.MouseLeave += (_, _) => { if (!_seekDrag.IsDragging) SeekTip.Visibility = Visibility.Collapsed; };
+        // Zaman balonu Filmler ve TV gibi sadece sürüklerken görünür
 
         _volumeDrag = new SliderDrag(VolumeSlider);
         // Sürükleme fareyi popup'tan aldı; geri ver ki dışarı tıklayınca popup kapansın
@@ -306,7 +305,9 @@ public partial class MainWindow : Window
     void OnSeekDragMoved(double value)
     {
         TimeText.Text = FormatTime((long)value);
-        ShowSeekTip(value);
+        // Zaman balonu basınca değil, sürüklemeye başlayınca görünür (Filmler ve TV'de basılı
+        // tutmak balon göstermiyor)
+        if (_seekDrag.HasMoved) ShowSeekTip(value);
         // Sürüklerken videoyu da takip ettir ama her harekette değil; motoru saniyede
         // onlarca kez sardırmak görüntüyü takıltır. Atlanan son konum, fare durunca
         // zamanlayıcıyla sarılır ki görüntü tam fareyle aynı yerde kalsın.
@@ -343,19 +344,13 @@ public partial class MainWindow : Window
 
     void OnSeekDragCompleted(double value)
     {
-        SeekTip.Visibility = Seek.IsMouseOver ? Visibility.Visible : Visibility.Collapsed;
+        SeekTip.Visibility = Visibility.Collapsed;
         _scrubTimer.Stop();
         var resume = _resumeAfterScrub;
         _resumeAfterScrub = false;
         if (IsFinished) { PlayCurrent((long)value); return; }
         if (_player.IsSeekable) _player.Time = (long)value;
         if (resume) _player.SetPause(false);
-    }
-
-    void Seek_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (Seek.Maximum <= 1 || _seekDrag.IsDragging) return;
-        ShowSeekTip(_seekDrag.ValueAt(e.GetPosition(Seek).X));
     }
 
     void ShowSeekTip(double value)
@@ -475,8 +470,9 @@ public partial class MainWindow : Window
 
     static string FormatTime(long ms)
     {
+        // Filmler ve TV gibi her zaman saat:dakika:saniye
         var t = TimeSpan.FromMilliseconds(Math.Max(0, ms));
-        return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
+        return $"{(int)t.TotalHours:00}:{t.Minutes:00}:{t.Seconds:00}";
     }
 
     void ShowToast(string icon, string text)

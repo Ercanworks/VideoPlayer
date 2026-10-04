@@ -94,18 +94,16 @@
                 <TextBlock x:Name="TitleText" Grid.Row="1" Margin="24,0,24,2" FontSize="16"
                            TextTrimming="CharacterEllipsis" />
 
-                <!-- İlerleme çubuğu ve süreler -->
-                <Grid Grid.Row="2" Margin="20,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="TimeText" Text="0:00" FontSize="12" VerticalAlignment="Center" MinWidth="44" />
-                    <Grid Grid.Column="1" Margin="10,0">
+                <!-- İlerleme çubuğu (tam genişlik) ve altında süreler, Filmler ve TV gibi -->
+                <Grid Grid.Row="2" Margin="24,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid>
                         <Slider x:Name="Seek" Style="{StaticResource FlatSlider}" Minimum="0" Maximum="1"
                                 IsEnabled="False" />
-                        <!-- Üstüne gelince gösterilen zaman -->
+                        <!-- Sürüklerken gösterilen zaman -->
                         <Canvas IsHitTestVisible="False" ClipToBounds="False">
                             <Border x:Name="SeekTip" Background="{StaticResource FlyoutBrush}" CornerRadius="4"
                                     Padding="8,3" Canvas.Top="-30" Visibility="Collapsed">
@@ -113,10 +111,12 @@
                             </Border>
                         </Canvas>
                     </Grid>
-                    <TextBlock x:Name="LengthText" Grid.Column="2" Text="0:00" FontSize="12" VerticalAlignment="Center"
-                               MinWidth="44" TextAlignment="Right" Cursor="Hand"
-                               ToolTip="{x:Static local:L.RemainingOrTotal}"
-                               MouseLeftButtonUp="LengthText_Click" />
+                    <Grid Grid.Row="1">
+                        <TextBlock x:Name="TimeText" Text="00:00:00" FontSize="12" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="LengthText" Text="00:00:00" FontSize="12" HorizontalAlignment="Right"
+                                   Cursor="Hand" ToolTip="{x:Static local:L.RemainingOrTotal}"
+                                   MouseLeftButtonUp="LengthText_Click" />
+                    </Grid>
                 </Grid>
 
                 <!-- Düğmeler -->

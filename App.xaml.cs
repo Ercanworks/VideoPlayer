@@ -87,6 +87,10 @@ public partial class App : Application
                 var c = Color.FromRgb((byte)abgr, (byte)(abgr >> 8), (byte)(abgr >> 16));
                 Resources["AccentBrush"] = new SolidColorBrush(c);
             }
+            // Paletin 3. rengi (indeks 2) "açık 1" tonu; Filmler ve TV çubuklarda bunu kullanıyor
+            if (Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Accent",
+                    "AccentPalette", null) is byte[] { Length: >= 12 } palette)
+                Resources["AccentLightBrush"] = new SolidColorBrush(Color.FromRgb(palette[8], palette[9], palette[10]));
         }
         catch { }
     }

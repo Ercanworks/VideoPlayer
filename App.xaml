@@ -5,7 +5,9 @@
     <Application.Resources>
         <!-- Vurgu rengi açılışta Windows'un kendi vurgu renginden alınır -->
         <SolidColorBrush x:Key="AccentBrush" Color="#0078D4" />
-        <SolidColorBrush x:Key="TrackBrush" Color="#59FFFFFF" />
+        <!-- Vurgu renginin açık tonu (Windows paletinde "açık 1"); Filmler ve TV koyu temada çubuklarda bunu kullanıyor -->
+        <SolidColorBrush x:Key="AccentLightBrush" Color="#429CE3" />
+        <SolidColorBrush x:Key="TrackBrush" Color="#29FFFFFF" />
         <SolidColorBrush x:Key="HoverBrush" Color="#26FFFFFF" />
         <SolidColorBrush x:Key="PressedBrush" Color="#14FFFFFF" />
         <SolidColorBrush x:Key="FlyoutBrush" Color="#F22B2B2B" />
@@ -139,14 +141,17 @@
         </Style>
 
         <!-- İlerleme ve ses çubukları: ince iz, üstüne gelince büyüyen tutamak -->
+        <!-- Çubuklar Filmler ve TV'den ölçüldü: geçen kısım 4 px açık vurgu rengi, kalan kısım 2 px
+             yarı saydam gri, tutamak 20 px içi boş halka (üstüne gelince büyümüyor) -->
         <Style x:Key="FlatRepeat" TargetType="RepeatButton">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Height" Value="4" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RepeatButton">
                         <Border Background="Transparent">
-                            <Border Height="4" CornerRadius="2" VerticalAlignment="Center"
+                            <Border Height="{TemplateBinding Height}" VerticalAlignment="Center"
                                     Background="{TemplateBinding Background}" />
                         </Border>
                     </ControlTemplate>
@@ -165,30 +170,30 @@
                         <Grid Background="Transparent">
                             <Track x:Name="PART_Track">
                                 <Track.DecreaseRepeatButton>
-                                    <RepeatButton Style="{StaticResource FlatRepeat}" Background="{DynamicResource AccentBrush}"
+                                    <RepeatButton Style="{StaticResource FlatRepeat}" Background="{DynamicResource AccentLightBrush}"
                                                   Command="{x:Static Slider.DecreaseLarge}" />
                                 </Track.DecreaseRepeatButton>
                                 <Track.IncreaseRepeatButton>
                                     <RepeatButton Style="{StaticResource FlatRepeat}" Background="{StaticResource TrackBrush}"
-                                                  Command="{x:Static Slider.IncreaseLarge}" />
+                                                  Height="2" Command="{x:Static Slider.IncreaseLarge}" />
                                 </Track.IncreaseRepeatButton>
                                 <Track.Thumb>
-                                    <Thumb x:Name="Thumb">
+                                    <Thumb>
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="Thumb">
+                                                <!-- Kaplama boyutu sabit 20 px; basılıyken daire 22 px'e büyüyüp taşar,
+                                                     çubuğun yerleşimi kaymaz -->
                                                 <Grid Width="20" Height="20" Background="Transparent">
-                                                    <Ellipse x:Name="Dot" Width="12" Height="12"
-                                                             Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="0" />
+                                                    <Ellipse x:Name="Ring" Width="20" Height="20"
+                                                             Stroke="{DynamicResource AccentLightBrush}" StrokeThickness="2" />
                                                 </Grid>
                                                 <ControlTemplate.Triggers>
-                                                    <!-- Çubuğun üstüne gelince veya sürüklerken tutamak büyür -->
-                                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Slider}}" Value="True">
-                                                        <Setter TargetName="Dot" Property="Width" Value="16" />
-                                                        <Setter TargetName="Dot" Property="Height" Value="16" />
-                                                    </DataTrigger>
+                                                    <!-- Basılı tutarken (sürüklerken de) içi dolu, Filmler ve TV gibi -->
                                                     <DataTrigger Binding="{Binding IsMouseCaptured, RelativeSource={RelativeSource AncestorType=Slider}}" Value="True">
-                                                        <Setter TargetName="Dot" Property="Width" Value="16" />
-                                                        <Setter TargetName="Dot" Property="Height" Value="16" />
+                                                        <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource AccentLightBrush}" />
+                                                        <Setter TargetName="Ring" Property="Width" Value="22" />
+                                                        <Setter TargetName="Ring" Property="Height" Value="22" />
+                                                        <Setter TargetName="Ring" Property="Margin" Value="-1" />
                                                     </DataTrigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
