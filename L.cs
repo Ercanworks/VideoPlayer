@@ -50,6 +50,10 @@ public static class L
     public static string EndStop => T("Dur", "Stop");
     public static string EndNext => T("Klasördeki sonraki videoya geç", "Play next video in folder");
     public static string EndRepeat => T("Tekrarla", "Repeat");
+    public static string VideoSection => T("Görüntü", "Video");
+    public static string Interpolation => T("Ara kare üretme (daha akıcı hareket)", "Frame interpolation (smoother motion)");
+    public static string InterpolationOn => T("Ara kare üretme açık", "Frame interpolation on");
+    public static string InterpolationOff => T("Ara kare üretme kapalı", "Frame interpolation off");
     public static string OpenFile => T("Dosya aç…", "Open file…");
     public static string OpenFileLocation => T("Dosya konumunu aç", "Open file location");
     public static string MakeDefault => T("Varsayılan video oynatıcısı yap", "Make default video player");

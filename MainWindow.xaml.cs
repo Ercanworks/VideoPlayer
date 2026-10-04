@@ -64,7 +64,7 @@ public partial class MainWindow : Window
 
         try
         {
-            _player = new MpvEngine();
+            _player = new MpvEngine { Interpolation = _settings.Interpolation };
         }
         catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or EntryPointNotFoundException)
         {
@@ -933,6 +933,19 @@ public partial class MainWindow : Window
         }
         UpdateSpeedButtons();
         UpdateEndActionButtons();
+        UpdateInterpolationButton();
+    }
+
+    void UpdateInterpolationButton() =>
+        SetCheckItem(InterpolationButton, L.Interpolation, _settings.Interpolation);
+
+    void Interpolation_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.Interpolation = !_settings.Interpolation;
+        _player.Interpolation = _settings.Interpolation;
+        _settings.Save();
+        UpdateInterpolationButton();
+        ShowToast("\uE916", _settings.Interpolation ? L.InterpolationOn : L.InterpolationOff);
     }
 
     void UpdateSpeedButtons()

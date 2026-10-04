@@ -115,6 +115,21 @@ public sealed class MpvEngine : IDisposable
     public int Volume { set => SetProperty("volume", value.ToString(CultureInfo.InvariantCulture)); }
     public bool Mute { set => SetProperty("mute", value ? "yes" : "no"); }
 
+    /// <summary>
+    /// Ara kare üretme: ekran yenilemesi iki video karesinin arasına düştüğünde kareleri
+    /// zamanına göre harmanlar; 60 fps videonun 144 Hz ekrandaki düzensiz kare süreleri kaybolur.
+    /// Ekran senkronlu çizim (display-resample) açıkken çalışır. Oynatırken açılıp kapatılabilir.
+    /// </summary>
+    public bool Interpolation
+    {
+        set
+        {
+            if (_initialized) SetProperty("interpolation", value ? "yes" : "no");
+            else SetOption("interpolation", value ? "yes" : "no");
+        }
+    }
+
+
     public double Rate
     {
         get => _initialized ? GetDouble("speed") : 1;
