@@ -317,7 +317,7 @@ public partial class MainWindow : Window
         // onlarca kez sardırmak görüntüyü takıltır. Atlanan son konum, fare durunca
         // zamanlayıcıyla sarılır ki görüntü tam fareyle aynı yerde kalsın.
         _scrubTarget = (long)value;
-        if (IsFinished || !_player.IsSeekable) return;
+        if (!CanScrub) return;
         var now = Environment.TickCount64;
         if (now - _lastScrubSeek < _player.ScrubIntervalMs)
         {
@@ -341,10 +341,17 @@ public partial class MainWindow : Window
     /// bir sonraki harekette geri sarılınca aynı sahne tekrar tekrar görünüyordu.
     /// Böylece fare nerede durursa tam o andaki kare görünür.
     /// </summary>
+    /// <summary>
+    /// Video bitmiş olsa da sarılabilir: mpv dosyayı kapatmıyor, son karede bekliyor (keep-open).
+    /// Sadece dosya yokken veya açılamadıysa sarılamaz.
+    /// </summary>
+    bool CanScrub => _player.State is not (PlayerState.Idle or PlayerState.Error) && _player.IsSeekable;
+
     void OnSeekDragStarted()
     {
-        _resumeAfterScrub = _player.IsPlaying;
-        if (_resumeAfterScrub) _player.SetPause(true);
+        // Bitmiş videoda çubuğu sürükleyip bırakınca o noktadan oynamaya devam etsin
+        _resumeAfterScrub = _player.IsPlaying || _player.State == PlayerState.Ended;
+        if (_player.IsPlaying) _player.SetPause(true);
     }
 
     void OnSeekDragCompleted(double value)
@@ -353,8 +360,8 @@ public partial class MainWindow : Window
         _scrubTimer.Stop();
         var resume = _resumeAfterScrub;
         _resumeAfterScrub = false;
-        if (IsFinished) { PlayCurrent((long)value); return; }
-        if (_player.IsSeekable) _player.Time = (long)value;
+        if (!CanScrub) { if (_playlist.Current != null) PlayCurrent((long)value); return; }
+        _player.Time = (long)value;
         if (resume) _player.SetPause(false);
     }
 
