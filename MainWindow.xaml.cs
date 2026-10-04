@@ -547,7 +547,7 @@ public partial class MainWindow : Window
     void ApplyControlLayout()
     {
         var m = ButtonRow.Margin;
-        ButtonRow.Margin = new Thickness(m.Left, m.Top, m.Right, _fullscreen ? 31 : 16);
+        ButtonRow.Margin = new Thickness(m.Left, m.Top, m.Right, _fullscreen ? 32 : 16);
         BigTitle.FontSize = _fullscreen ? 42 : 34;
         BigTitle.Margin = new Thickness(23, 0, 24, _fullscreen ? 157 : 164);
     }

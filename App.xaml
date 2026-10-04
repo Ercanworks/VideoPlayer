@@ -75,6 +75,8 @@
         <!-- Alt çubuktaki kare düğmeler (Filmler ve TV gibi). Çerçevenin rengi koddan, imleci
              takip eden ışıkla (RadialGradientBrush) veriliyor: fare yaklaştıkça yakın kenarlar parlar -->
         <Style x:Key="RevealButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <!-- Filmler ve TV: bütün simgeler 20 punto, kutular 48x48, aralarında 2 px -->
+            <Setter Property="FontSize" Value="20" />
             <Setter Property="Width" Value="48" />
             <Setter Property="Height" Value="48" />
             <Setter Property="Margin" Value="1,0" />
@@ -84,7 +86,8 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bg" Background="Transparent" BorderThickness="1"
                                 BorderBrush="{TemplateBinding BorderBrush}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <!-- Filmler ve TV'de simgeler kutu ortasının 1 px altında -->
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsPressed" Value="True">

@@ -137,8 +137,8 @@
                     </Grid>
                 </Grid>
 
-                <!-- Düğmeler: ilk simge soldan 45 px, son simge sağdan 50 px, simgeler alttan 41 px -->
-                <Grid x:Name="ButtonRow" Grid.Row="1" Margin="20,3,25,16" Background="Transparent">
+                <!-- Düğmeler (Filmler ve TV'den ölçüldü): ilk kutu soldan, son kutu sağdan 25 px -->
+                <Grid x:Name="ButtonRow" Grid.Row="1" Margin="24,3,24,16" Background="Transparent">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -153,11 +153,11 @@
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="PrevButton" Style="{StaticResource RevealButton}" Content="&#xE892;"
                                 ToolTip="{x:Static local:L.PreviousVideoTip}" Click="PrevButton_Click" />
-                        <Button x:Name="BackButton" Style="{StaticResource RevealButton}" Content="&#xED3C;" FontSize="20"
+                        <Button x:Name="BackButton" Style="{StaticResource RevealButton}" Content="&#xED3C;"
                                 ToolTip="{x:Static local:L.BackTip}" Click="BackButton_Click" />
                         <Button x:Name="PlayButton" Style="{StaticResource PlayButton}" Content="&#xE768;"
                                 ToolTip="{x:Static local:L.PlayTip}" Click="PlayButton_Click" />
-                        <Button x:Name="ForwardButton" Style="{StaticResource RevealButton}" Content="&#xED3D;" FontSize="20"
+                        <Button x:Name="ForwardButton" Style="{StaticResource RevealButton}" Content="&#xED3D;"
                                 ToolTip="{x:Static local:L.ForwardTip}" Click="ForwardButton_Click" />
                         <Button x:Name="NextButton" Style="{StaticResource RevealButton}" Content="&#xE893;"
                                 ToolTip="{x:Static local:L.NextVideoTip}" Click="NextButton_Click" />
