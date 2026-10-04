@@ -465,8 +465,9 @@ public partial class MainWindow : Window
 
     void UpdatePlaylistButtons()
     {
-        PrevButton.IsEnabled = _playlist.HasPrevious;
-        NextButton.IsEnabled = _playlist.HasNext;
+        // Filmler ve TV gibi: o yönde video yoksa ok hiç görünmez
+        PrevButton.Visibility = _playlist.HasPrevious ? Visibility.Visible : Visibility.Collapsed;
+        NextButton.Visibility = _playlist.HasNext ? Visibility.Visible : Visibility.Collapsed;
         PrevButton.ToolTip = _playlist.PeekPrevious() is { } p ? L.PreviousNamedTip(Path.GetFileName(p)) : L.PreviousVideoTip;
         NextButton.ToolTip = _playlist.PeekNext() is { } n ? L.NextNamedTip(Path.GetFileName(n)) : L.NextVideoTip;
     }
@@ -561,6 +562,8 @@ public partial class MainWindow : Window
             _controlsVisible = true;
             Controls.IsHitTestVisible = true;
             CaptionButtons.IsHitTestVisible = true;
+            EdgeArrows.IsHitTestVisible = true;
+            FadeLinear(EdgeArrows, 1, FadeInMs);
             FadeLinear(Controls, 1, FadeInMs);
             FadeLinear(TopBar, 1, FadeInMs);
             Overlay.Cursor = null;
@@ -579,11 +582,13 @@ public partial class MainWindow : Window
         _hideTimer.Stop();
         if (!_player.IsPlaying || VolumePopup.IsOpen || MorePopup.IsOpen || SpeedPopup.IsOpen || _mouseDown || _seekDrag.IsDragging)
             return;
-        if (Controls.IsMouseOver || CaptionButtons.IsMouseOver) { RestartHideTimer(); return; }
+        if (Controls.IsMouseOver || CaptionButtons.IsMouseOver || EdgeArrows.IsMouseOver) { RestartHideTimer(); return; }
 
         _controlsVisible = false;
         Controls.IsHitTestVisible = false;
         CaptionButtons.IsHitTestVisible = false;
+        EdgeArrows.IsHitTestVisible = false;
+        FadeLinear(EdgeArrows, 0, FadeOutMs);
         FadeLinear(Controls, 0, FadeOutMs);
         FadeLinear(TopBar, 0, FadeOutMs);
         SeekTip.Visibility = Visibility.Collapsed;
@@ -1019,6 +1024,7 @@ public partial class MainWindow : Window
         BackButton.Visibility = ForwardButton.Visibility = extra;
         FullButton.Visibility = MoreButton.Visibility = VolumeButton.Visibility = SpeedButton.Visibility = extra;
         if (_mini) HideTitle(instant: true);
+        EdgeArrows.Visibility = extra;
         MiniButton.Content = _mini ? "\uE73F" : "\uE8A7";
         MiniButton.ToolTip = _mini ? L.ExitMiniTip : L.MiniTip;
         UpdateWindowButtons();

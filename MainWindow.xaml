@@ -74,6 +74,17 @@
                 </StackPanel>
             </Grid>
 
+            <!-- Klasördeki önceki/sonraki video okları: kenarlarda, dikeyde ortada; kontrollerle
+                 birlikte belirip gizlenir, o yönde video yoksa hiç görünmez (Filmler ve TV gibi) -->
+            <Grid x:Name="EdgeArrows">
+                <Button x:Name="PrevButton" Style="{StaticResource EdgeButton}" Content="&#xE76B;"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip="{x:Static local:L.PreviousVideoTip}" Click="PrevButton_Click" />
+                <Button x:Name="NextButton" Style="{StaticResource EdgeButton}" Content="&#xE76C;"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        ToolTip="{x:Static local:L.NextVideoTip}" Click="NextButton_Click" />
+            </Grid>
+
             <!-- Duraklatılmışken fare oynayınca görünen video adı ve onunla gelen koyu gölge.
                  Ölçüler Filmler ve TV'den: gölge alttan 320 px, alttaki 150 px'te %60 siyah;
                  yazı alttan 157 px'te biter (tam ekranda 173), 34 punto ince yazı -->
@@ -152,16 +163,12 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="PrevButton" Style="{StaticResource RevealButton}" Content="&#xE892;"
-                                ToolTip="{x:Static local:L.PreviousVideoTip}" Click="PrevButton_Click" />
                         <Button x:Name="BackButton" Style="{StaticResource RevealButton}" Content="&#xED3C;"
                                 ToolTip="{x:Static local:L.BackTip}" Click="BackButton_Click" />
                         <Button x:Name="PlayButton" Style="{StaticResource PlayButton}" Content="&#xE768;"
                                 ToolTip="{x:Static local:L.PlayTip}" Click="PlayButton_Click" />
                         <Button x:Name="ForwardButton" Style="{StaticResource RevealButton}" Content="&#xED3D;"
                                 ToolTip="{x:Static local:L.ForwardTip}" Click="ForwardButton_Click" />
-                        <Button x:Name="NextButton" Style="{StaticResource RevealButton}" Content="&#xE893;"
-                                ToolTip="{x:Static local:L.NextVideoTip}" Click="NextButton_Click" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

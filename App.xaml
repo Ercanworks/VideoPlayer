@@ -107,6 +107,41 @@
             <Setter Property="FontSize" Value="20" />
         </Style>
 
+        <!-- Kenardaki önceki/sonraki video okları (Filmler ve TV'den ölçüldü): 30x100 kutu,
+             %80 beyaz ok, sağ altında 1 px gölge; çerçeve imleci izleyen ışıkla belirir,
+             basılıyken içi %18 beyaz -->
+        <Style x:Key="EdgeButton" TargetType="Button">
+            <Setter Property="Foreground" Value="#B0FFFFFF" />
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="24" />
+            <!-- Filmler ve TV'de kutu ortanın 1 px altında -->
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="100" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="Transparent" BorderThickness="1"
+                                BorderBrush="{TemplateBinding BorderBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter.Effect>
+                                    <DropShadowEffect Color="Black" Direction="315" ShadowDepth="1"
+                                                      BlurRadius="3" Opacity="0.55" />
+                                </ContentPresenter.Effect>
+                            </ContentPresenter>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#2EFFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Açılır menülerdeki satırlar -->
         <Style x:Key="MenuButton" TargetType="Button">
             <Setter Property="Foreground" Value="White" />

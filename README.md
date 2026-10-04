@@ -12,6 +12,7 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 - Movies & TV–style reveal lighting: the square control buttons' borders light up around the
   cursor as it approaches
 - Other videos in the opened file's folder are queued in File Explorer order
+- Movies & TV–style previous/next arrows on the left and right edges of the video (hidden when there is no video in that direction)
 - **Drag to switch:** grab the video and drag it sideways — it slides inside the window,
   and if you drag far enough it slides out and the next/previous video in the folder starts
 - Movies & TV–style layout measured pixel by pixel: the video title appears in large type for
