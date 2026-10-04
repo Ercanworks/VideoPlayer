@@ -107,6 +107,7 @@ public partial class MainWindow : Window
 
         _tick.Tick += (_, _) => UpdateTime();
         _hideTimer.Tick += (_, _) => TryHideControls();
+        _titleTimer.Tick += (_, _) => HideTitle();
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); Fade(Toast, 0, 250); };
 
         // Kontroller videonun üstündeki ayrı pencereye taşındığı için XAML'daki
@@ -195,7 +196,8 @@ public partial class MainWindow : Window
         _player.Open(path);
 
         Title = Path.GetFileName(path);
-        TitleText.Text = Path.GetFileNameWithoutExtension(path);
+        BigTitle.Text = Path.GetFileNameWithoutExtension(path);
+        HideTitle();
         Welcome.Visibility = Visibility.Collapsed;
         Seek.IsEnabled = true;
         UpdatePlaylistButtons();
@@ -447,8 +449,8 @@ public partial class MainWindow : Window
         var hasFile = _playlist.Current != null;
         BackButton.IsEnabled = ForwardButton.IsEnabled = hasFile;
         ShowInFolderButton.IsEnabled = hasFile;
-        if (!playing) ShowControls();
-        else RestartHideTimer();
+        if (!playing) { ShowControls(); ShowTitle(); }
+        else { HideTitle(); RestartHideTimer(); }
     }
 
     void UpdatePlaylistButtons()
@@ -490,6 +492,47 @@ public partial class MainWindow : Window
         {
             EasingFunction = new QuadraticEase(),
         });
+
+    // ---------------------------------------------------------------- Video adı (duraklatılmışken)
+
+    // Filmler ve TV gibi: video oynarken ad hiç görünmez; duraklatılmışken fare oynayınca veya
+    // duraklatınca ~2,8 sn görünür, alttaki gölge de o sırada koyulaşır
+    readonly DispatcherTimer _titleTimer = new() { Interval = TimeSpan.FromMilliseconds(2800) };
+    bool _titleVisible;
+
+    void ShowTitle()
+    {
+        if (_player.IsPlaying || _playlist.Current == null || _mini || _seekDrag.IsDragging || _resumeAfterScrub)
+            return;
+        if (!_titleVisible)
+        {
+            _titleVisible = true;
+            Fade(BigTitle, 1, 150);
+            Fade(TitleShade, 1, 150);
+            Fade(ControlsShade, 0, 150);
+        }
+        _titleTimer.Stop();
+        _titleTimer.Start();
+    }
+
+    void HideTitle()
+    {
+        _titleTimer.Stop();
+        if (!_titleVisible) return;
+        _titleVisible = false;
+        Fade(BigTitle, 0, 120);
+        Fade(TitleShade, 0, 120);
+        Fade(ControlsShade, 1, 120);
+    }
+
+    /// <summary>Tam ekranda Filmler ve TV kontrolleri 15 px yukarı alıyor ve adı büyütüyor.</summary>
+    void ApplyControlLayout()
+    {
+        var m = ButtonRow.Margin;
+        ButtonRow.Margin = new Thickness(m.Left, m.Top, m.Right, _fullscreen ? 31 : 16);
+        BigTitle.FontSize = _fullscreen ? 42 : 34;
+        BigTitle.Margin = new Thickness(23, 0, 24, _fullscreen ? 157 : 164);
+    }
 
     // ---------------------------------------------------------------- Kontrollerin gizlenmesi
 
@@ -623,7 +666,7 @@ public partial class MainWindow : Window
     {
         var pos = e.GetPosition(Overlay);
         // WPF düzen değişince de MouseMove gönderir; gerçekten hareket edildiyse göster
-        if ((pos - _lastMouse).Length > 2) ShowControls();
+        if ((pos - _lastMouse).Length > 2) { ShowControls(); ShowTitle(); }
         _lastMouse = pos;
 
         if (!_mouseDown)
@@ -910,6 +953,7 @@ public partial class MainWindow : Window
             ResizeMode = ResizeMode.CanResize;
             MoveWindowTo(_rectBeforeFullscreen);
         }
+        ApplyControlLayout();
         FullButton.Content = _fullscreen ? IconExitFull : IconFull;
         FullButton.ToolTip = _fullscreen ? L.ExitFullscreenTip : L.FullscreenTip;
         UpdateWindowButtons();
@@ -945,7 +989,7 @@ public partial class MainWindow : Window
         var extra = _mini ? Visibility.Collapsed : Visibility.Visible;
         BackButton.Visibility = ForwardButton.Visibility = extra;
         FullButton.Visibility = MoreButton.Visibility = VolumeButton.Visibility = extra;
-        TitleText.Visibility = extra;
+        if (_mini) HideTitle();
         MiniButton.Content = _mini ? "\uE73F" : "\uE8A7";
         MiniButton.ToolTip = _mini ? L.ExitMiniTip : L.MiniTip;
         UpdateWindowButtons();

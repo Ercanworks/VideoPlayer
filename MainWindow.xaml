@@ -6,23 +6,23 @@
         Background="Black" AllowDrop="True" UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
 
-    <!-- Windows'un başlık çubuğu yok; pencere düğmeleri videonun üstünde, kontrollerle birlikte gizlenir -->
+    <!-- Windows'un baÅŸlÄ±k Ã§ubuÄŸu yok; pencere dÃ¼ÄŸmeleri videonun Ã¼stÃ¼nde, kontrollerle birlikte gizlenir -->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0,0,0,1"
                       CornerRadius="0" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
     <Grid x:Name="Root" Background="Black">
-        <!-- Motorun görüntüyü çizdiği yerel pencere -->
+        <!-- Motorun gÃ¶rÃ¼ntÃ¼yÃ¼ Ã§izdiÄŸi yerel pencere -->
         <local:VideoHost x:Name="Video" />
 
-        <!-- Kontroller. Video ayrı bir yerel pencere olduğu için WPF öğeleri üstünde görünemez;
-             bu ızgara açılışta videonun üstündeki saydam bir pencereye taşınır.
-             Neredeyse saydam arka plan: videonun üstündeki tıklamaları yakalamak için -->
+        <!-- Kontroller. Video ayrÄ± bir yerel pencere olduÄŸu iÃ§in WPF Ã¶ÄŸeleri Ã¼stÃ¼nde gÃ¶rÃ¼nemez;
+             bu Ä±zgara aÃ§Ä±lÄ±ÅŸta videonun Ã¼stÃ¼ndeki saydam bir pencereye taÅŸÄ±nÄ±r.
+             Neredeyse saydam arka plan: videonun Ã¼stÃ¼ndeki tÄ±klamalarÄ± yakalamak iÃ§in -->
         <Grid x:Name="Overlay" Background="#01000000" AllowDrop="True"
               TextElement.Foreground="White" TextElement.FontFamily="Segoe UI">
 
-            <!-- Açılış ekranı -->
+            <!-- AÃ§Ä±lÄ±ÅŸ ekranÄ± -->
             <StackPanel x:Name="Welcome" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="56"
                            HorizontalAlignment="Center" Opacity="0.8" />
@@ -46,7 +46,7 @@
                 </Button>
             </StackPanel>
 
-            <!-- Ortada kısa süre görünen bildirim (ses, ileri sarma vb.) -->
+            <!-- Ortada kÄ±sa sÃ¼re gÃ¶rÃ¼nen bildirim (ses, ileri sarma vb.) -->
             <Border x:Name="Toast" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Background="#B3000000" CornerRadius="8" Padding="22,14" Opacity="0" IsHitTestVisible="False">
                 <StackPanel Orientation="Horizontal">
@@ -56,7 +56,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- Üst şerit: pencereyi taşımak için tutulan alan ve pencere düğmeleri -->
+            <!-- Ãœst ÅŸerit: pencereyi taÅŸÄ±mak iÃ§in tutulan alan ve pencere dÃ¼ÄŸmeleri -->
             <Grid x:Name="TopBar" VerticalAlignment="Top" Height="48">
                 <Grid.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -74,28 +74,46 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Alt kontrol çubuğu -->
-            <Grid x:Name="Controls" VerticalAlignment="Bottom">
-                <Grid.Background>
+            <!-- DuraklatÄ±lmÄ±ÅŸken fare oynayÄ±nca gÃ¶rÃ¼nen video adÄ± ve onunla gelen koyu gÃ¶lge.
+                 Ã–lÃ§Ã¼ler Filmler ve TV'den: gÃ¶lge alttan 320 px, alttaki 150 px'te %60 siyah;
+                 yazÄ± alttan 174 px'te biter, 32 px ince yazÄ± (tam ekranda 40 px) -->
+            <Rectangle x:Name="TitleShade" VerticalAlignment="Bottom" Height="320" Opacity="0" IsHitTestVisible="False">
+                <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                         <GradientStop Color="#00000000" Offset="0" />
-                        <GradientStop Color="#B3000000" Offset="0.5" />
-                        <GradientStop Color="#D9000000" Offset="1" />
+                        <GradientStop Color="#99000000" Offset="0.53" />
+                        <GradientStop Color="#99000000" Offset="1" />
                     </LinearGradientBrush>
-                </Grid.Background>
+                </Rectangle.Fill>
+            </Rectangle>
+            <TextBlock x:Name="BigTitle" VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                       Margin="23,0,24,164" FontSize="34" FontFamily="Segoe UI Semilight" TextOptions.TextFormattingMode="Ideal"
+                       TextTrimming="CharacterEllipsis" Opacity="0" IsHitTestVisible="False" />
+
+            <!-- Alt kontrol Ã§ubuÄŸu -->
+            <Grid x:Name="Controls" VerticalAlignment="Bottom">
+
+                <!-- Kontrollerin arkasÄ±ndaki gÃ¶lge (Filmler ve TV'den Ã¶lÃ§Ã¼ldÃ¼): alttan 200 px
+                     yukarÄ±da baÅŸlar, alttaki 60 px'te %55 siyah -->
+                <Rectangle x:Name="ControlsShade" VerticalAlignment="Bottom" Height="200"
+                           IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#00000000" Offset="0" />
+                            <GradientStop Color="#8C000000" Offset="0.7" />
+                            <GradientStop Color="#8C000000" Offset="1" />
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+
+                <Grid VerticalAlignment="Bottom">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="40" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Video adı (Filmler ve TV gibi kontrollerin üstünde) -->
-                <TextBlock x:Name="TitleText" Grid.Row="1" Margin="24,0,24,2" FontSize="16"
-                           TextTrimming="CharacterEllipsis" />
-
-                <!-- İlerleme çubuğu (tam genişlik) ve altında süreler, Filmler ve TV gibi -->
-                <Grid Grid.Row="2" Margin="24,0">
+                <!-- Ä°lerleme Ã§ubuÄŸu (tam geniÅŸlik) ve altÄ±nda sÃ¼reler, Filmler ve TV gibi -->
+                <Grid Grid.Row="0" Margin="24,0" Background="Transparent">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -103,7 +121,7 @@
                     <Grid>
                         <Slider x:Name="Seek" Style="{StaticResource FlatSlider}" Minimum="0" Maximum="1"
                                 IsEnabled="False" />
-                        <!-- Sürüklerken gösterilen zaman -->
+                        <!-- SÃ¼rÃ¼klerken gÃ¶sterilen zaman -->
                         <Canvas IsHitTestVisible="False" ClipToBounds="False">
                             <Border x:Name="SeekTip" Background="{StaticResource FlyoutBrush}" CornerRadius="4"
                                     Padding="8,3" Canvas.Top="-30" Visibility="Collapsed">
@@ -119,8 +137,8 @@
                     </Grid>
                 </Grid>
 
-                <!-- Düğmeler -->
-                <Grid Grid.Row="3" Margin="12,2,12,12">
+                <!-- DÃ¼ÄŸmeler: ilk simge soldan 45 px, son simge saÄŸdan 50 px, simgeler alttan 41 px -->
+                <Grid x:Name="ButtonRow" Grid.Row="1" Margin="20,3,25,16" Background="Transparent">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -154,9 +172,10 @@
                                 ToolTip="{x:Static local:L.MoreTip}" Click="MoreButton_Click" />
                     </StackPanel>
                 </Grid>
+                </Grid>
             </Grid>
 
-            <!-- Ses menüsü -->
+            <!-- Ses menÃ¼sÃ¼ -->
             <Popup x:Name="VolumePopup" Placement="Top" VerticalOffset="-6" StaysOpen="False"
                    AllowsTransparency="True" PopupAnimation="Fade">
                 <Border Style="{StaticResource FlyoutBorder}" Padding="6,4,14,4">
@@ -171,7 +190,7 @@
                 </Border>
             </Popup>
 
-            <!-- Diğer seçenekler menüsü -->
+            <!-- DiÄŸer seÃ§enekler menÃ¼sÃ¼ -->
             <Popup x:Name="MorePopup" Placement="Top" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                 <Border Style="{StaticResource FlyoutBorder}" TextElement.Foreground="White">
                     <StackPanel MinWidth="250">

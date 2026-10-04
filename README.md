@@ -14,6 +14,8 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 - Other videos in the opened file's folder are queued in File Explorer order
 - **Drag to switch:** grab the video and drag it sideways — it slides inside the window,
   and if you drag far enough it slides out and the next/previous video in the folder starts
+- Movies & TV–style layout measured pixel by pixel: the video title appears in large type for
+  ~2.7 s when paused and the mouse moves (never while playing), with a deeper shade behind it
 - Movies & TV–style seek bar: thin track in the light accent color, ring thumb that fills while
   pressed, elapsed and total time (hh:mm:ss) below the bar
 - **Precise seeking:** press anywhere on the seek bar and drag; the video pauses while the
