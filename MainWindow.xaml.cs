@@ -543,13 +543,13 @@ public partial class MainWindow : Window
         FadeLinear(ControlsShade, 1, ms);
     }
 
-    /// <summary>Tam ekranda Filmler ve TV kontrolleri 15 px yukarı alıyor ve adı büyütüyor.</summary>
+    /// <summary>Tam ekranda Filmler ve TV kontrolleri ve adı 16 px yukarı alıyor.</summary>
     void ApplyControlLayout()
     {
         var m = ButtonRow.Margin;
         ButtonRow.Margin = new Thickness(m.Left, m.Top, m.Right, _fullscreen ? 32 : 16);
-        BigTitle.FontSize = _fullscreen ? 42 : 34;
-        BigTitle.Margin = new Thickness(23, 0, 24, _fullscreen ? 157 : 164);
+        BigTitle.FontSize = 34;
+        BigTitle.Margin = new Thickness(23, 0, 24, _fullscreen ? 163 : 147);
     }
 
     // ---------------------------------------------------------------- Kontrollerin gizlenmesi

@@ -76,7 +76,7 @@
 
             <!-- Duraklatılmışken fare oynayınca görünen video adı ve onunla gelen koyu gölge.
                  Ölçüler Filmler ve TV'den: gölge alttan 320 px, alttaki 150 px'te %60 siyah;
-                 yazı alttan 174 px'te biter, 32 px ince yazı (tam ekranda 40 px) -->
+                 yazı alttan 157 px'te biter (tam ekranda 173), 34 punto ince yazı -->
             <Rectangle x:Name="TitleShade" VerticalAlignment="Bottom" Height="320" Opacity="0" IsHitTestVisible="False">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -87,7 +87,7 @@
                 </Rectangle.Fill>
             </Rectangle>
             <TextBlock x:Name="BigTitle" VerticalAlignment="Bottom" HorizontalAlignment="Left"
-                       Margin="23,0,24,164" FontSize="34" FontFamily="Segoe UI Semilight" TextOptions.TextFormattingMode="Ideal"
+                       Margin="23,0,24,147" FontSize="34" FontFamily="Segoe UI Semilight" TextOptions.TextFormattingMode="Ideal"
                        TextTrimming="CharacterEllipsis" Opacity="0" IsHitTestVisible="False" />
 
             <!-- Alt kontrol çubuğu -->
@@ -129,16 +129,17 @@
                             </Border>
                         </Canvas>
                     </Grid>
-                    <Grid Grid.Row="1">
+                    <!-- Tam sayı yükseklik: çubuk piksel sınırına otursun (yazının kendi yüksekliği 15,96 px) -->
+                    <Grid Grid.Row="1" Height="16">
                         <TextBlock x:Name="TimeText" Text="00:00:00" FontSize="12" HorizontalAlignment="Left" />
-                        <TextBlock x:Name="LengthText" Text="00:00:00" FontSize="12" HorizontalAlignment="Right"
+                        <TextBlock x:Name="LengthText" Text="00:00:00" FontSize="12" HorizontalAlignment="Right" Margin="0,0,1,0"
                                    Cursor="Hand" ToolTip="{x:Static local:L.RemainingOrTotal}"
                                    MouseLeftButtonUp="LengthText_Click" />
                     </Grid>
                 </Grid>
 
                 <!-- Düğmeler (Filmler ve TV'den ölçüldü): ilk kutu soldan, son kutu sağdan 25 px -->
-                <Grid x:Name="ButtonRow" Grid.Row="1" Margin="24,3,24,16" Background="Transparent">
+                <Grid x:Name="ButtonRow" Grid.Row="1" Margin="24,2,24,16" Background="Transparent">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
