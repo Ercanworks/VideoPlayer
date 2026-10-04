@@ -22,20 +22,6 @@
         <Grid x:Name="Overlay" Background="#01000000" AllowDrop="True"
               TextElement.Foreground="White" TextElement.FontFamily="Segoe UI">
 
-            <!-- Tutup çekerken videonun yerine geçen, parmağı takip eden kare görüntüsü -->
-            <Grid x:Name="SwipeLayer" Background="Black" ClipToBounds="True" IsHitTestVisible="False"
-                  Visibility="Collapsed">
-                <Image x:Name="SwipeImage" Stretch="Uniform" RenderTransformOrigin="0.5,0.5"
-                       RenderOptions.BitmapScalingMode="LowQuality">
-                    <Image.RenderTransform>
-                        <TransformGroup>
-                            <ScaleTransform x:Name="SwipeScale" />
-                            <TranslateTransform x:Name="SwipeShift" />
-                        </TransformGroup>
-                    </Image.RenderTransform>
-                </Image>
-            </Grid>
-
             <!-- Açılış ekranı -->
             <StackPanel x:Name="Welcome" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="56"
@@ -196,10 +182,6 @@
                         <Button x:Name="EndStop" Style="{StaticResource MenuButton}" Tag="Stop" Click="EndAction_Click" />
                         <Button x:Name="EndNext" Style="{StaticResource MenuButton}" Tag="Next" Click="EndAction_Click" />
                         <Button x:Name="EndRepeat" Style="{StaticResource MenuButton}" Tag="Repeat" Click="EndAction_Click" />
-                        <Separator Background="#33FFFFFF" Margin="4,6" />
-                        <TextBlock Text="Oynatma motoru" FontSize="12" Opacity="0.6" Margin="12,4,12,4" />
-                        <Button x:Name="EngineMpv" Style="{StaticResource MenuButton}" Tag="mpv" Click="Engine_Click" />
-                        <Button x:Name="EngineVlc" Style="{StaticResource MenuButton}" Tag="vlc" Click="Engine_Click" />
                         <Separator Background="#33FFFFFF" Margin="4,6" />
                         <Button Style="{StaticResource MenuButton}" Click="MenuOpen_Click">
                             <StackPanel Orientation="Horizontal">

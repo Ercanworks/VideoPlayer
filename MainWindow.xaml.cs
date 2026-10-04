@@ -29,7 +29,7 @@ public partial class MainWindow : Window
 
     readonly Settings _settings = Settings.Load();
     readonly FolderPlaylist _playlist = new();
-    readonly IPlayerEngine _player;
+    readonly MpvEngine _player;
     readonly Window _overlayWindow;
     readonly SliderDrag _seekDrag, _volumeDrag;
 
@@ -55,8 +55,6 @@ public partial class MainWindow : Window
     bool _mouseDown, _swiping;
     Point _downPoint, _lastClickPos;
     long _lastClickTick, _popupClosedTick;
-    int _swipeId;
-    Task<ImageSource?>? _swipeFrame;
     double _shiftDip;
 
     public MainWindow()
@@ -64,7 +62,17 @@ public partial class MainWindow : Window
         InitializeComponent();
         RestoreSavedBounds();
 
-        _player = CreateEngine(_settings.Engine);
+        try
+        {
+            _player = new MpvEngine();
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or EntryPointNotFoundException)
+        {
+            MessageBox.Show("mpv kütüphanesi (libmpv-2.dll) bulunamadı veya açılamadı. Uygulama klasöründe olduğundan emin olun.",
+                "Video Player", MessageBoxButton.OK, MessageBoxImage.Error);
+            Environment.Exit(1);
+            throw;
+        }
         Video.HandleCreated += hwnd => _player.Attach(hwnd);
 
         // Motor olayları kendi iş parçacığından gelir; oynatıcıya buradan dokunmak
@@ -94,12 +102,7 @@ public partial class MainWindow : Window
             Height = 1,
             Content = Overlay,
         };
-        Loaded += (_, _) =>
-        {
-            PrepareOverlayWindow();
-            if (_settings.Engine == "mpv" && _player is VlcEngine)
-                ShowToast("\uE7BA", "mpv açılamadı, VLC kullanılıyor");
-        };
+        Loaded += (_, _) => PrepareOverlayWindow();
         LocationChanged += (_, _) => PositionOverlay();
         Video.SizeChanged += (_, _) => PositionOverlay();
 
@@ -600,18 +603,12 @@ public partial class MainWindow : Window
         }
         if (!_swiping) return;
 
-        // Görüntü fareyi birebir izleyerek pencere içinde kayar, boşalan taraf siyah kalır.
-        // Sınır yok; ekrandan tamamen çıkana kadar çekilebilir.
-        if (_player.SupportsLiveShift)
-        {
-            // mpv videonun kendisini kaydırıyor; video oynamaya devam eder. Her fare
-            // hareketinde hemen gönderiliyor, mpv ekranın her yenilemesinde en güncelini çiziyor.
-            _shiftDip = d.X;
-            SendShift(d.X);
-            return;
-        }
-        SwipeScale.ScaleX = SwipeScale.ScaleY = 1;
-        SwipeShift.X = d.X;
+        // Video fareyi birebir izleyerek pencere içinde kayar, boşalan taraf siyah kalır;
+        // ekrandan tamamen çıkana kadar çekilebilir. mpv videonun kendisini kaydırdığı için
+        // video oynamaya devam eder. Her fare hareketinde hemen gönderilir, mpv ekranın her
+        // yenilemesinde en güncelini çizer.
+        _shiftDip = d.X;
+        SendShift(d.X);
     }
 
     /// <summary>
@@ -662,7 +659,6 @@ public partial class MainWindow : Window
         _mouseDown = true;
         _swiping = false;
         _downPoint = pos;
-        if (!_player.SupportsLiveShift) PrepareSwipeFrame();
         Overlay.CaptureMouse();
         e.Handled = true;
     }
@@ -679,140 +675,36 @@ public partial class MainWindow : Window
         EndSwipe((e.GetPosition(Overlay) - _downPoint).X);
     }
 
-    /// <summary>
-    /// Video ayrı bir pencerede çizildiği için kendisi kaydırılamaz; o anki kareyi alıp
-    /// üstteki katmanda gösteriyoruz ve sürüklerken onu hareket ettiriyoruz.
-    /// </summary>
-    /// <summary>
-    /// Videoya basılır basılmaz o anki kareyi arka planda hazırla. Önceden çekme başlayınca
-    /// alınıyordu; kare gelene kadar geçen süre esnemenin başında takılma gibi hissettiriyordu.
-    /// </summary>
-    void PrepareSwipeFrame()
-    {
-        _swipeFrame = null;
-        if (IsFinished || _playlist.Current == null) return;
-        var player = _player;
-        // Ekrandan büyük çözmeye gerek yok; küçük resim esnetilirken daha akıcı çizilir
-        var width = (int)Math.Max(320, Overlay.ActualWidth * VisualTreeHelper.GetDpi(this).DpiScaleX);
-        var file = Path.Combine(Path.GetTempPath(), $"oynatici_kare_{Environment.TickCount64}.jpg");
-        _swipeFrame = Task.Run<ImageSource?>(() =>
-        {
-            try
-            {
-                if (!player.TakeSnapshot(file)) return null;
-                var bmp = new System.Windows.Media.Imaging.BitmapImage();
-                bmp.BeginInit();
-                bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-                bmp.CreateOptions = System.Windows.Media.Imaging.BitmapCreateOptions.IgnoreImageCache;
-                bmp.DecodePixelWidth = width;
-                bmp.UriSource = new Uri(file);
-                bmp.EndInit();
-                bmp.Freeze();
-                return bmp;
-            }
-            catch { return null; }
-            finally { try { File.Delete(file); } catch { } }
-        });
-    }
-
-    /// <summary>Çekme başladı: hazırlanan kareyi videonun yerine koy.</summary>
+    /// <summary>Çekme başladı: önceki animasyonu durdur, video alanının boyutunu ölç.</summary>
     void BeginSwipeVisual()
     {
-        var id = ++_swipeId;
         StopShiftAnimation();
-        if (_player.SupportsLiveShift)
-        {
-            CacheShiftGeometry();
-            return;
-        }
-        SwipeShift.BeginAnimation(TranslateTransform.XProperty, null);
-        SwipeScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        SwipeScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        SwipeLayer.BeginAnimation(OpacityProperty, null);
-        SwipeLayer.Opacity = 1;
-
-        var frame = _swipeFrame;
-        if (frame == null) return;
-        if (frame.IsCompletedSuccessfully)
-        {
-            ShowSwipeFrame(frame.Result);
-            return;
-        }
-        frame.ContinueWith(t =>
-        {
-            // Kare hazır olana kadar parmak bırakıldıysa gösterme
-            if (id == _swipeId && _swiping && t.IsCompletedSuccessfully) ShowSwipeFrame(t.Result);
-        }, TaskScheduler.FromCurrentSynchronizationContext());
-    }
-
-    void ShowSwipeFrame(ImageSource? image)
-    {
-        if (image == null) return;
-        SwipeImage.Source = image;
-        SwipeLayer.Visibility = Visibility.Visible;
+        CacheShiftGeometry();
     }
 
     void EndSwipe(double dx)
     {
-        var id = ++_swipeId;
         var toNext = dx < 0;
         var target = toNext ? _playlist.PeekNext() : _playlist.PeekPrevious();
         var success = target != null && Math.Abs(dx) >= SwipeThreshold;
         Action go = toNext ? Next : Previous;
 
-        if (_player.SupportsLiveShift)
-        {
-            if (success)
-            {
-                // Mevcut video çekilen yönde pencereden tamamen kayıp çıkar,
-                // sonra sonraki video kaymadan yerinde başlar
-                AnimateShift(Math.Sign(dx) * Math.Max(Overlay.ActualWidth, Math.Abs(_shiftDip)),
-                    TimeSpan.FromMilliseconds(200), new QuadraticEase { EasingMode = EasingMode.EaseIn }, () =>
-                    {
-                        // Open kaydırmayı sıfırlıyor
-                        _shiftDip = 0;
-                        go();
-                    });
-            }
-            else
-            {
-                // Yeterince çekilmediyse hafifçe yaylanarak yerine döner
-                AnimateShift(0, TimeSpan.FromMilliseconds(380), new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 });
-            }
-            return;
-        }
-
-        if (SwipeLayer.Visibility != Visibility.Visible)
-        {
-            if (success) go();
-            return;
-        }
-
         if (success)
         {
-            // Kare pencereden tamamen kayıp çıkınca yeni videoya geç, yeni video siyahtan belirir
-            var slide = new DoubleAnimation(Math.Sign(dx) * Overlay.ActualWidth, TimeSpan.FromMilliseconds(200))
-            {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn },
-            };
-            slide.Completed += (_, _) =>
-            {
-                go();
-                var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(250)) { BeginTime = TimeSpan.FromMilliseconds(100) };
-                fade.Completed += (_, _) => HideSwipeLayer(id);
-                SwipeLayer.BeginAnimation(OpacityProperty, fade);
-            };
-            SwipeShift.BeginAnimation(TranslateTransform.XProperty, slide);
+            // Mevcut video çekilen yönde pencereden tamamen kayıp çıkar,
+            // sonra sonraki video kaymadan yerinde başlar
+            AnimateShift(Math.Sign(dx) * Math.Max(Overlay.ActualWidth, Math.Abs(_shiftDip)),
+                TimeSpan.FromMilliseconds(200), new QuadraticEase { EasingMode = EasingMode.EaseIn }, () =>
+                {
+                    // Open kaydırmayı sıfırlıyor
+                    _shiftDip = 0;
+                    go();
+                });
         }
         else
         {
             // Yeterince çekilmediyse hafifçe yaylanarak yerine döner
-            var back = new DoubleAnimation(0, TimeSpan.FromMilliseconds(380))
-            {
-                EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 },
-            };
-            back.Completed += (_, _) => HideSwipeLayer(id);
-            SwipeShift.BeginAnimation(TranslateTransform.XProperty, back);
+            AnimateShift(0, TimeSpan.FromMilliseconds(380), new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 });
         }
     }
 
@@ -865,20 +757,6 @@ public partial class MainWindow : Window
     }
 
     void StopShiftAnimation() => Interlocked.Increment(ref _shiftAnimId);
-
-    void HideSwipeLayer(int id)
-    {
-        if (id != _swipeId) return; // bu arada yeni bir çekme başladı
-        SwipeLayer.Visibility = Visibility.Collapsed;
-        SwipeLayer.BeginAnimation(OpacityProperty, null);
-        SwipeLayer.Opacity = 1;
-        SwipeShift.BeginAnimation(TranslateTransform.XProperty, null);
-        SwipeShift.X = 0;
-        SwipeScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        SwipeScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-        SwipeScale.ScaleX = SwipeScale.ScaleY = 1;
-        SwipeImage.Source = null;
-    }
 
     void Overlay_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
@@ -1056,24 +934,6 @@ public partial class MainWindow : Window
         }
         UpdateSpeedButtons();
         UpdateEndActionButtons();
-        UpdateEngineButtons();
-    }
-
-    void UpdateEngineButtons()
-    {
-        SetCheckItem(EngineMpv, "mpv", _settings.Engine == "mpv");
-        SetCheckItem(EngineVlc, "VLC", _settings.Engine == "vlc");
-    }
-
-    void Engine_Click(object sender, RoutedEventArgs e)
-    {
-        _settings.Engine = (string)((Button)sender).Tag;
-        _settings.Save();
-        UpdateEngineButtons();
-        MorePopup.IsOpen = false;
-        ShowToast("\uE72C", _settings.Engine == _player.Name.ToLowerInvariant()
-            ? $"{_player.Name} kullanılıyor"
-            : "Video Player yeniden açılınca geçerli olur");
     }
 
     void UpdateSpeedButtons()
@@ -1325,18 +1185,6 @@ public partial class MainWindow : Window
         SetWindowPos(_overlayHwnd, IntPtr.Zero, (int)Math.Round(topLeft.X), (int)Math.Round(topLeft.Y),
             (int)Math.Round(Video.ActualWidth * dpi.DpiScaleX), (int)Math.Round(Video.ActualHeight * dpi.DpiScaleY),
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
-    }
-
-    static IPlayerEngine CreateEngine(string name)
-    {
-        if (name == "mpv")
-        {
-            // libmpv-2.dll yoksa veya açılamazsa VLC ile devam et
-            try { return new MpvEngine(); }
-            catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException
-                                       or EntryPointNotFoundException or InvalidOperationException) { }
-        }
-        return new VlcEngine();
     }
 
     MONITORINFO CurrentMonitor()

@@ -53,7 +53,7 @@ public static class FileAssociation
         using (var caps = Registry.CurrentUser.CreateSubKey(CapabilitiesKey))
         {
             caps.SetValue("ApplicationName", AppName);
-            caps.SetValue("ApplicationDescription", "mpv ve VLC altyapılı video oynatıcı");
+            caps.SetValue("ApplicationDescription", "mpv altyapılı video oynatıcı");
             caps.SetValue("ApplicationIcon", $"\"{exe}\",0");
             using var assoc = caps.CreateSubKey("FileAssociations");
             foreach (var ext in FolderPlaylist.VideoExtensions) assoc.SetValue(ext, ProgId);

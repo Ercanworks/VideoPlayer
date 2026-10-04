@@ -4,8 +4,13 @@ using System.Text;
 
 namespace Oynatici.Engine;
 
-/// <summary>libmpv (mpv'nin kütüphane hâli) ile oynatma.</summary>
-public sealed class MpvEngine : IPlayerEngine
+public enum PlayerState { Idle, Opening, Playing, Paused, Ended, Error }
+
+/// <summary>
+/// libmpv (mpv'nin kütüphane hâli) ile oynatma. Olaylar mpv'nin olay iş parçacığından gelir;
+/// dinleyen taraf arayüz iş parçacığına aktarmalıdır.
+/// </summary>
+public sealed class MpvEngine : IDisposable
 {
     readonly IntPtr _ctx;
     Thread? _eventThread;
@@ -17,7 +22,7 @@ public sealed class MpvEngine : IPlayerEngine
 
     public event Action? Playing, Paused, Stopped, EndReached, Error;
 
-    public string Name => "mpv";
+    /// <summary>Sürüklerken en fazla bu sıklıkta sarılır (ms).</summary>
     public int ScrubIntervalMs => 50;
 
     /// <param name="headless">Görüntü ve ses çıkışı olmadan (testler için).</param>
@@ -44,8 +49,6 @@ public sealed class MpvEngine : IPlayerEngine
         SetOption("keep-open", "yes");
         SetOption("idle", "yes");
         SetOption("force-window", "yes");
-        SetOption("screenshot-format", "jpg");
-        SetOption("screenshot-jpeg-quality", "85");
         if (headless)
         {
             SetOption("vo", "null");
@@ -118,8 +121,10 @@ public sealed class MpvEngine : IPlayerEngine
         set => SetProperty("speed", value.ToString("0.###", CultureInfo.InvariantCulture));
     }
 
-    public bool SupportsLiveShift => true;
-
+    /// <summary>
+    /// Videoyu pencere içinde yatayda kaydırır (piksel; eksi sola). Boşalan yer siyah kalır.
+    /// Video alanının boyutu da verilir ki her seferinde mpv'ye sormak gerekmesin.
+    /// </summary>
     public void SetShift(double pixels, double viewWidth, double viewHeight)
     {
         // mpv'nin kaydırma birimi, ekranda gösterilen video genişliğinin oranı.
@@ -139,9 +144,6 @@ public sealed class MpvEngine : IPlayerEngine
 
     static readonly byte[] PanName = U("video-pan-x");
     volatile float _aspect;
-
-    public bool TakeSnapshot(string path) =>
-        _loaded && Command("screenshot-to-file", path, "video") >= 0;
 
     void EventLoop()
     {

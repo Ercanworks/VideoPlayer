@@ -1,8 +1,7 @@
 # Video Player
 
 Windows 10/11 için Filmler ve TV tarzında, sade bir video oynatıcı. Altyapıda **mpv**
-(varsayılan) veya **VLC** motoru çalışır, böylece her formatı oynatır ve Discord gibi
-ekran paylaşımlarında takılma yapmaz.
+çalışır, böylece her formatı oynatır ve Discord gibi ekran paylaşımlarında takılma yapmaz.
 
 ## Özellikler
 
@@ -14,7 +13,7 @@ ekran paylaşımlarında takılma yapmaz.
 - **Hassas sarma:** çubuğun herhangi bir yerine basıp sürükleme; basılıyken video duraklar,
   fare nerede durursa o kare görünür. İmleci çubuktan yukarı kaldırdıkça 3 kata kadar
   daha ince ayar yapılır
-- mpv motoru ekranın yenileme hızıyla senkron çizer (kayma 144 Hz ekranda akıcı)
+- Ekranın yenileme hızıyla senkron çizim (kayma 144 Hz ekranda akıcı)
 - Tam ekran, ekranı kapla ve her zaman üstte kalan mini görünüm
 - Oynatma hızı (0,5x – 2x), video bitince dur / sonrakine geç / tekrarla
 - Pencere boyutu, konumu ve ses ayarları hatırlanır
@@ -47,10 +46,9 @@ Gerekenler: .NET 8 SDK, 7-Zip.
 dotnet publish -c Release -o Uygulama -p:DebugType=none
 ```
 
-`libmpv-2.dll` indirilmezse uygulama VLC motoruyla çalışır. Motor, "⋯" menüsündeki
-**Oynatma motoru** bölümünden değiştirilebilir.
+`libmpv-2.dll` GitHub'ın dosya boyutu sınırını aştığı için depoda yok; betik onu
+`lib\` klasörüne indirir ve derleme çıktıya kopyalar.
 
 ## Kullanılan bileşenler
 
 - [mpv](https://mpv.io) — libmpv, [shinchiro derlemesi](https://github.com/shinchiro/mpv-winbuild-cmake)
-- [LibVLCSharp](https://github.com/videolan/libvlcsharp) ve VideoLAN.LibVLC.Windows

@@ -16,8 +16,6 @@ public sealed class Settings
     public int Volume { get; set; } = 80;
     public bool Muted { get; set; }
     public EndAction EndAction { get; set; } = EndAction.Stop;
-    /// <summary>"mpv" veya "vlc"; değişiklik oynatıcı yeniden açılınca geçerli olur.</summary>
-    public string Engine { get; set; } = "mpv";
 
     static readonly string Dir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Oynatici");

@@ -5,8 +5,7 @@ using System.Windows.Interop;
 namespace Oynatici;
 
 /// <summary>
-/// Oynatma motorunun görüntüyü çizdiği siyah arka planlı yerel pencere.
-/// VLC ve mpv ikisi de bir pencere tanıtıcısına (HWND) çizebiliyor.
+/// mpv'nin görüntüyü çizdiği siyah arka planlı yerel pencere (mpv'ye tanıtıcısı verilir).
 /// </summary>
 public sealed class VideoHost : HwndHost
 {
