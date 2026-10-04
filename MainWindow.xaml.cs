@@ -151,6 +151,9 @@ public partial class MainWindow : Window
             target.Drop += OnDrop;
         }
         Overlay.MouseMove += Overlay_MouseMove;
+        Overlay.MouseMove += (_, e) => UpdateRevealLight(e);
+        Overlay.MouseLeave += (_, _) => UpdateRevealLight(null);
+        SetupRevealLight();
         Overlay.PreviewMouseLeftButtonDown += Overlay_PreviewMouseLeftButtonDown;
         Overlay.MouseLeftButtonDown += Overlay_MouseLeftButtonDown;
         Overlay.MouseLeftButtonUp += Overlay_MouseLeftButtonUp;
@@ -529,6 +532,49 @@ public partial class MainWindow : Window
         SeekTip.Visibility = Visibility.Collapsed;
         // Fare videonun üstündeyse imleci de gizle
         if (Overlay.IsMouseOver) Overlay.Cursor = Cursors.None;
+    }
+
+    // ---------------------------------------------------------------- Işık efekti (Reveal)
+
+    // Filmler ve TV'deki gibi: imleci merkez alan yumuşak bir ışık, yakındaki kare düğmelerin
+    // çerçevelerini aydınlatır. Her düğmenin çerçevesi kendi konumuna göre hesaplanan dairesel
+    // bir renk geçişi; fare hareket ettikçe geçişin merkezi imlece taşınır.
+    // Değerler Filmler ve TV'den ölçüldü: imlecin ~30 px çevresinde sabit, ~45 px'te yarıya
+    // iner, ~70 px'te tamamen söner
+    const double RevealRadius = 72;
+    readonly List<(Button Button, RadialGradientBrush Light)> _revealButtons = new();
+    static readonly Point FarAway = new(-10000, -10000);
+
+    void SetupRevealLight()
+    {
+        foreach (var button in new[] { VolumeButton, PrevButton, BackButton, PlayButton, ForwardButton,
+                                        NextButton, MiniButton, FullButton, MoreButton })
+        {
+            var light = new RadialGradientBrush
+            {
+                MappingMode = BrushMappingMode.Absolute,
+                RadiusX = RevealRadius,
+                RadiusY = RevealRadius,
+                Center = FarAway,
+                GradientOrigin = FarAway,
+            };
+            light.GradientStops.Add(new GradientStop(Color.FromArgb(0x30, 255, 255, 255), 0));
+            light.GradientStops.Add(new GradientStop(Color.FromArgb(0x30, 255, 255, 255), 0.42));
+            light.GradientStops.Add(new GradientStop(Color.FromArgb(0x1C, 255, 255, 255), 0.62));
+            light.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 255, 255, 255), 1));
+            button.BorderBrush = light;
+            _revealButtons.Add((button, light));
+        }
+    }
+
+    void UpdateRevealLight(MouseEventArgs? e)
+    {
+        foreach (var (button, light) in _revealButtons)
+        {
+            var p = e != null && button.IsVisible ? e.GetPosition(button) : FarAway;
+            light.Center = p;
+            light.GradientOrigin = p;
+        }
     }
 
     // ---------------------------------------------------------------- Fare

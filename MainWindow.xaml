@@ -128,29 +128,29 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="VolumeButton" Style="{StaticResource IconButton}" Content="&#xE995;"
+                        <Button x:Name="VolumeButton" Style="{StaticResource RevealButton}" Content="&#xE995;"
                                 ToolTip="{x:Static local:L.VolumeTip}" Click="VolumeButton_Click" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="PrevButton" Style="{StaticResource IconButton}" Content="&#xE892;"
+                        <Button x:Name="PrevButton" Style="{StaticResource RevealButton}" Content="&#xE892;"
                                 ToolTip="{x:Static local:L.PreviousVideoTip}" Click="PrevButton_Click" />
-                        <Button x:Name="BackButton" Style="{StaticResource IconButton}" Content="&#xED3C;" FontSize="20"
-                                ToolTip="{x:Static local:L.BackTip}" Click="BackButton_Click" Margin="8,0" />
+                        <Button x:Name="BackButton" Style="{StaticResource RevealButton}" Content="&#xED3C;" FontSize="20"
+                                ToolTip="{x:Static local:L.BackTip}" Click="BackButton_Click" />
                         <Button x:Name="PlayButton" Style="{StaticResource PlayButton}" Content="&#xE768;"
                                 ToolTip="{x:Static local:L.PlayTip}" Click="PlayButton_Click" />
-                        <Button x:Name="ForwardButton" Style="{StaticResource IconButton}" Content="&#xED3D;" FontSize="20"
-                                ToolTip="{x:Static local:L.ForwardTip}" Click="ForwardButton_Click" Margin="8,0" />
-                        <Button x:Name="NextButton" Style="{StaticResource IconButton}" Content="&#xE893;"
+                        <Button x:Name="ForwardButton" Style="{StaticResource RevealButton}" Content="&#xED3D;" FontSize="20"
+                                ToolTip="{x:Static local:L.ForwardTip}" Click="ForwardButton_Click" />
+                        <Button x:Name="NextButton" Style="{StaticResource RevealButton}" Content="&#xE893;"
                                 ToolTip="{x:Static local:L.NextVideoTip}" Click="NextButton_Click" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Button x:Name="MiniButton" Style="{StaticResource IconButton}" Content="&#xE8A7;"
+                        <Button x:Name="MiniButton" Style="{StaticResource RevealButton}" Content="&#xE8A7;"
                                 ToolTip="{x:Static local:L.MiniTip}" Click="MiniButton_Click" />
-                        <Button x:Name="FullButton" Style="{StaticResource IconButton}" Content="&#xE740;"
+                        <Button x:Name="FullButton" Style="{StaticResource RevealButton}" Content="&#xE740;"
                                 ToolTip="{x:Static local:L.FullscreenTip}" Click="FullButton_Click" />
-                        <Button x:Name="MoreButton" Style="{StaticResource IconButton}" Content="&#xE712;"
+                        <Button x:Name="MoreButton" Style="{StaticResource RevealButton}" Content="&#xE712;"
                                 ToolTip="{x:Static local:L.MoreTip}" Click="MoreButton_Click" />
                     </StackPanel>
                 </Grid>

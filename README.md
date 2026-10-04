@@ -9,6 +9,8 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 
 - Borderless Movies & TV–style interface; controls and window buttons fade out when the
   mouse stops moving
+- Movies & TV–style reveal lighting: the square control buttons' borders light up around the
+  cursor as it approaches
 - Other videos in the opened file's folder are queued in File Explorer order
 - **Drag to switch:** grab the video and drag it sideways — it slides inside the window,
   and if you drag far enough it slides out and the next/previous video in the folder starts
