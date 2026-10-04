@@ -25,7 +25,8 @@ public partial class MainWindow : Window
 
     const int BackSeconds = 10, ForwardSeconds = 30;
     const double ResizeEdge = 6;
-    static readonly double[] Speeds = { 0.5, 0.75, 1, 1.25, 1.5, 2 };
+    // YouTube'daki hız adımları
+    static readonly double[] Speeds = { 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2 };
 
     readonly Settings _settings = Settings.Load();
     readonly FolderPlaylist _playlist = new();
@@ -37,7 +38,8 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _hideTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromMilliseconds(900) };
 
-    bool _showRemaining, _controlsVisible = true;
+    // Filmler ve TV gibi sağda varsayılan olarak kalan süre
+    bool _showRemaining = true, _controlsVisible = true;
     bool _fullscreen, _mini;
     RECT _rectBeforeFullscreen;
     IntPtr _overlayHwnd;
@@ -113,9 +115,10 @@ public partial class MainWindow : Window
         // Kontroller videonun üstündeki ayrı pencereye taşındığı için XAML'daki
         // ElementName bağlamaları çalışmıyor; hedefleri burada ver
         VolumePopup.PlacementTarget = VolumeButton;
+        SpeedPopup.PlacementTarget = SpeedButton;
         MorePopup.PlacementTarget = MoreButton;
         // Menüyü kapatmak için yapılan tık başka bir şeyi tetiklemesin
-        foreach (var popup in new[] { VolumePopup, MorePopup })
+        foreach (var popup in new[] { VolumePopup, MorePopup, SpeedPopup })
             // Closed olayı kapanma animasyonu bitince geliyor; kapanma anını hemen yakala
             System.ComponentModel.DependencyPropertyDescriptor.FromProperty(Popup.IsOpenProperty, typeof(Popup))
                 .AddValueChanged(popup, (_, _) =>
@@ -437,7 +440,7 @@ public partial class MainWindow : Window
 
         var shown = (long)Seek.Value;
         TimeText.Text = FormatTime(shown);
-        LengthText.Text = _showRemaining ? "-" + FormatTime(length - shown) : FormatTime(length);
+        LengthText.Text = FormatTime(_showRemaining ? length - shown : length);
     }
 
     void UpdatePlayState()
@@ -567,7 +570,7 @@ public partial class MainWindow : Window
     void TryHideControls()
     {
         _hideTimer.Stop();
-        if (!_player.IsPlaying || VolumePopup.IsOpen || MorePopup.IsOpen || _mouseDown || _seekDrag.IsDragging)
+        if (!_player.IsPlaying || VolumePopup.IsOpen || MorePopup.IsOpen || SpeedPopup.IsOpen || _mouseDown || _seekDrag.IsDragging)
             return;
         if (Controls.IsMouseOver || CaptionButtons.IsMouseOver) { RestartHideTimer(); return; }
 
@@ -595,7 +598,7 @@ public partial class MainWindow : Window
     void SetupRevealLight()
     {
         foreach (var button in new[] { VolumeButton, PrevButton, BackButton, PlayButton, ForwardButton,
-                                        NextButton, MiniButton, FullButton, MoreButton })
+                                        NextButton, SpeedButton, MiniButton, FullButton, MoreButton })
         {
             var light = new RadialGradientBrush
             {
@@ -879,10 +882,11 @@ public partial class MainWindow : Window
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
         var alt = Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
+        var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
 
-        if (key == Key.Escape && (VolumePopup.IsOpen || MorePopup.IsOpen))
+        if (key == Key.Escape && (VolumePopup.IsOpen || MorePopup.IsOpen || SpeedPopup.IsOpen))
         {
-            VolumePopup.IsOpen = MorePopup.IsOpen = false;
+            VolumePopup.IsOpen = MorePopup.IsOpen = SpeedPopup.IsOpen = false;
             e.Handled = true;
             return;
         }
@@ -909,8 +913,12 @@ public partial class MainWindow : Window
             case Key.P or Key.PageUp or Key.MediaPreviousTrack: Previous(); break;
             case Key.O when ctrl: OpenWithDialog(); break;
             case Key.Home: if (_player.IsSeekable) _player.Time = 0; break;
-            case Key.OemPeriod or Key.Decimal: StepSpeed(+1); break;
-            case Key.OemComma: StepSpeed(-1); break;
+            // YouTube gibi: Shift + . hızlandırır, Shift + , yavaşlatır;
+            // tek başına . ve , duraklatılmışken bir kare ileri / geri gider
+            case Key.OemPeriod when shift: StepSpeed(+1); break;
+            case Key.OemComma when shift: StepSpeed(-1); break;
+            case Key.OemPeriod or Key.Decimal: FrameStep(+1); break;
+            case Key.OemComma: FrameStep(-1); break;
             default: handled = false; break;
         }
         if (handled)
@@ -918,6 +926,12 @@ public partial class MainWindow : Window
             e.Handled = true;
             if (key is not (Key.Space or Key.K or Key.F4)) ShowControls();
         }
+    }
+
+    void FrameStep(int dir)
+    {
+        if (_player.IsPlaying || IsFinished) return;
+        _player.FrameStep(dir);
     }
 
     void StepSpeed(int dir)
@@ -996,7 +1010,7 @@ public partial class MainWindow : Window
         // Mini görünümde sadece temel düğmeler kalsın
         var extra = _mini ? Visibility.Collapsed : Visibility.Visible;
         BackButton.Visibility = ForwardButton.Visibility = extra;
-        FullButton.Visibility = MoreButton.Visibility = VolumeButton.Visibility = extra;
+        FullButton.Visibility = MoreButton.Visibility = VolumeButton.Visibility = SpeedButton.Visibility = extra;
         if (_mini) HideTitle(instant: true);
         MiniButton.Content = _mini ? "\uE73F" : "\uE8A7";
         MiniButton.ToolTip = _mini ? L.ExitMiniTip : L.MiniTip;
@@ -1008,21 +1022,10 @@ public partial class MainWindow : Window
 
     void BuildMoreMenu()
     {
-        foreach (var s in Speeds)
+        foreach (var speed in Speeds)
         {
-            var b = new Button
-            {
-                Style = (Style)FindResource("MenuButton"),
-                MinWidth = 0,
-                Width = 52,
-                Height = 34,
-                Padding = new Thickness(0),
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                Content = $"{s:0.##}x",
-                Tag = s,
-                Margin = new Thickness(2),
-            };
-            b.Click += (_, _) => SetRate((double)b.Tag);
+            var b = new Button { Style = (Style)FindResource("MenuButton"), MinWidth = 150, Tag = speed };
+            b.Click += (_, _) => { SetRate((double)b.Tag); SpeedPopup.IsOpen = false; };
             SpeedPanel.Children.Add(b);
         }
         UpdateSpeedButtons();
@@ -1044,24 +1047,12 @@ public partial class MainWindow : Window
 
     void UpdateSpeedButtons()
     {
-        var normal = ((Style)FindResource("MenuButton")).Setters.OfType<Setter>()
-            .First(x => x.Property == TemplateProperty).Value as ControlTemplate;
         foreach (Button b in SpeedPanel.Children)
-            b.Template = (double)b.Tag == _rate ? SelectedMenuTemplate() : normal;
-    }
-
-    ControlTemplate? _selectedTemplate;
-    ControlTemplate SelectedMenuTemplate()
-    {
-        if (_selectedTemplate != null) return _selectedTemplate;
-        var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
-        border.SetResourceReference(Border.BackgroundProperty, "AccentBrush");
-        var content = new FrameworkElementFactory(typeof(ContentPresenter));
-        content.SetValue(HorizontalAlignmentProperty, HorizontalAlignment.Center);
-        content.SetValue(VerticalAlignmentProperty, VerticalAlignment.Center);
-        border.AppendChild(content);
-        return _selectedTemplate = new ControlTemplate(typeof(Button)) { VisualTree = border };
+        {
+            var speed = (double)b.Tag;
+            SetCheckItem(b, speed == 1 ? $"{speed:0.##}x (normal)" : $"{speed:0.##}x", speed == _rate);
+        }
+        SpeedButton.Content = $"{_rate:0.##}x";
     }
 
     void UpdateEndActionButtons()
@@ -1160,9 +1151,23 @@ public partial class MainWindow : Window
     void MaxButton_Click(object sender, RoutedEventArgs e) => ToggleMaximize();
     void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
+    void SpeedButton_Click(object sender, RoutedEventArgs e)
+    {
+        VolumePopup.IsOpen = MorePopup.IsOpen = false;
+        if (SpeedPopup.IsOpen) { SpeedPopup.IsOpen = false; return; }
+        if (JustClosed(SpeedPopup)) return;
+        // Menünün sağ kenarı düğmenin sağ kenarıyla hizalı, düğmenin üstünde
+        SpeedPopup.Placement = PlacementMode.Custom;
+        SpeedPopup.CustomPopupPlacementCallback = (popup, target, _) => new[]
+        {
+            new CustomPopupPlacement(new Point(target.Width - popup.Width, -popup.Height - 6), PopupPrimaryAxis.Horizontal),
+        };
+        SpeedPopup.IsOpen = true;
+    }
+
     void VolumeButton_Click(object sender, RoutedEventArgs e)
     {
-        MorePopup.IsOpen = false;
+        MorePopup.IsOpen = SpeedPopup.IsOpen = false;
         if (JustClosed(VolumePopup)) return;
         VolumePopup.IsOpen = !VolumePopup.IsOpen;
     }

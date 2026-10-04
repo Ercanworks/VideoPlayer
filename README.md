@@ -17,7 +17,7 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 - Movies & TV–style layout measured pixel by pixel: the video title appears in large type for
   ~2.7 s when paused and the mouse moves (never while playing), with a deeper shade behind it
 - Movies & TV–style seek bar: thin track in the light accent color, ring thumb that fills while
-  pressed, elapsed and total time (hh:mm:ss) below the bar
+  pressed, elapsed and remaining time (hh:mm:ss) below the bar; click the right one for total time
 - **Precise seeking:** press anywhere on the seek bar and drag; the video pauses while the
   button is held and shows the exact frame under the cursor. Move the cursor up away from the
   bar for up to 3× finer control
@@ -25,7 +25,7 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 - Optional frame interpolation ("⋯" menu → Video): blends frames at display refresh boundaries
   for smoother motion, e.g. 60 fps video on a 144 Hz screen
 - Full screen, maximize and an always-on-top mini view
-- Playback speed (0.5× – 2×); when a video ends: stop / play next in folder / repeat
+- Playback speed button (0.25× – 2×) next to mini view; when a video ends: stop / play next in folder / repeat
 - Remembers window size, position and volume
 - Single window: opening another video while the player is running reuses the same window
 - "Make default video player" option
@@ -40,7 +40,8 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 | M | Mute / unmute |
 | F / F11 / double-click | Full screen (Esc to exit) |
 | N / P | Next / previous video |
-| . / , | Faster / slower |
+| Shift + . / Shift + , | Faster / slower (0.25× steps, like YouTube) |
+| . / , | Next / previous frame (while paused) |
 | Ctrl+O | Open file |
 | Mouse side buttons | Previous / next video |
 

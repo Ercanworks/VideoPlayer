@@ -27,7 +27,7 @@ public static class L
     public static string ControlsWindowTitle => T("Video Player denetimleri", "Video Player controls");
 
     // Kontrol çubuğu
-    public static string RemainingOrTotal => T("Kalan süre / toplam süre", "Remaining / total time");
+    public static string RemainingOrTotal => T("Kalan süre (tıklayınca toplam süre)", "Remaining time (click for total)");
     public static string VolumeTip => T("Ses (Yukarı/Aşağı ok)", "Volume (Up/Down arrow)");
     public static string PreviousVideoTip => T("Önceki video (P)", "Previous video (P)");
     public static string NextVideoTip => T("Sonraki video (N)", "Next video (N)");
@@ -45,6 +45,7 @@ public static class L
     public static string MuteTip => T("Sesi kapat (M)", "Mute (M)");
 
     // Diğer seçenekler menüsü
+    public static string SpeedTip => T("Oynatma hızı (Shift + . / Shift + ,)", "Playback speed (Shift + . / Shift + ,)");
     public static string PlaybackSpeed => T("Oynatma hızı", "Playback speed");
     public static string WhenVideoEnds => T("Video bitince", "When the video ends");
     public static string EndStop => T("Dur", "Stop");

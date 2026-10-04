@@ -112,6 +112,9 @@ public sealed class MpvEngine : IDisposable
     }
 
     public long Length => (long)(GetDouble("duration") * 1000);
+    /// <summary>Duraklatılmışken bir kare ileri (1) veya geri (-1).</summary>
+    public void FrameStep(int dir) => CommandAsync(dir > 0 ? "frame-step" : "frame-back-step");
+
     public int Volume { set => SetProperty("volume", value.ToString(CultureInfo.InvariantCulture)); }
     public bool Mute { set => SetProperty("mute", value ? "yes" : "no"); }
 
