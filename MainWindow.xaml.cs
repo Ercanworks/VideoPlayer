@@ -609,24 +609,33 @@ public partial class MainWindow : Window
 
     void SetupRevealLight()
     {
-        foreach (var button in new[] { VolumeButton, PrevButton, BackButton, PlayButton, ForwardButton,
-                                        NextButton, SpeedButton, MiniButton, FullButton, MoreButton })
+        // Alt çubuk düğmeleri: imlecin ~30 px çevresinde %19, ~45 px'te %11, ~72 px'te söner
+        var barStops = new[] { (0.0, 0x30), (0.42, 0x30), (0.62, 0x1C), (1.0, 0x00) };
+        foreach (var button in new[] { VolumeButton, BackButton, PlayButton, ForwardButton,
+                                        SpeedButton, MiniButton, FullButton, MoreButton })
+            AddRevealLight(button, RevealRadius, barStops);
+
+        // Kenardaki oklar daha parlak parlar (Filmler ve TV'den ölçüldü): ~18 px'e kadar %25,
+        // 38 px'te %15, 47 px'te %11, 58 px'te %6,5, ~76 px'te söner
+        var edgeStops = new[] { (0.0, 0x40), (0.24, 0x40), (0.50, 0x25), (0.62, 0x1D), (0.68, 0x19), (0.76, 0x11), (1.0, 0x00) };
+        foreach (var button in new[] { PrevButton, NextButton })
+            AddRevealLight(button, 76, edgeStops);
+    }
+
+    void AddRevealLight(Button button, double radius, (double Offset, int Alpha)[] stops)
+    {
+        var light = new RadialGradientBrush
         {
-            var light = new RadialGradientBrush
-            {
-                MappingMode = BrushMappingMode.Absolute,
-                RadiusX = RevealRadius,
-                RadiusY = RevealRadius,
-                Center = FarAway,
-                GradientOrigin = FarAway,
-            };
-            light.GradientStops.Add(new GradientStop(Color.FromArgb(0x30, 255, 255, 255), 0));
-            light.GradientStops.Add(new GradientStop(Color.FromArgb(0x30, 255, 255, 255), 0.42));
-            light.GradientStops.Add(new GradientStop(Color.FromArgb(0x1C, 255, 255, 255), 0.62));
-            light.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 255, 255, 255), 1));
-            button.BorderBrush = light;
-            _revealButtons.Add((button, light));
-        }
+            MappingMode = BrushMappingMode.Absolute,
+            RadiusX = radius,
+            RadiusY = radius,
+            Center = FarAway,
+            GradientOrigin = FarAway,
+        };
+        foreach (var (offset, alpha) in stops)
+            light.GradientStops.Add(new GradientStop(Color.FromArgb((byte)alpha, 255, 255, 255), offset));
+        button.BorderBrush = light;
+        _revealButtons.Add((button, light));
     }
 
     void UpdateRevealLight(MouseEventArgs? e)
