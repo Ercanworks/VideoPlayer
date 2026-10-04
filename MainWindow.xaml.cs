@@ -68,8 +68,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or EntryPointNotFoundException)
         {
-            MessageBox.Show("mpv kütüphanesi (libmpv-2.dll) bulunamadı veya açılamadı. Uygulama klasöründe olduğundan emin olun.",
-                "Video Player", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(L.MpvMissing, "Video Player", MessageBoxButton.OK, MessageBoxImage.Error);
             Environment.Exit(1);
             throw;
         }
@@ -83,7 +82,7 @@ public partial class MainWindow : Window
         _player.EndReached += () => Dispatcher.BeginInvoke(OnEnded);
         _player.Error += () => Dispatcher.BeginInvoke(() =>
         {
-            ShowToast("\uE783", "Bu dosya oynatılamadı");
+            ShowToast("\uE783", L.CannotPlay);
             UpdatePlayState();
         });
 
@@ -91,7 +90,7 @@ public partial class MainWindow : Window
         Root.Children.Remove(Overlay);
         _overlayWindow = new Window
         {
-            Title = "Video Player denetimleri",
+            Title = L.ControlsWindowTitle,
             WindowStyle = WindowStyle.None,
             AllowsTransparency = true,
             Background = Brushes.Transparent,
@@ -206,8 +205,8 @@ public partial class MainWindow : Window
         var exts = string.Join(";", FolderPlaylist.VideoExtensions.Select(e => "*" + e));
         var dialog = new OpenFileDialog
         {
-            Title = "Video aç",
-            Filter = $"Video dosyaları|{exts}|Tüm dosyalar|*.*",
+            Title = L.OpenVideoTitle,
+            Filter = $"{L.VideoFiles}|{exts}|{L.AllFiles}|*.*",
         };
         if (_playlist.Current is { } cur) dialog.InitialDirectory = Path.GetDirectoryName(cur);
         if (dialog.ShowDialog(this) == true) OpenFile(dialog.FileName);
@@ -273,20 +272,20 @@ public partial class MainWindow : Window
         if (!_player.IsSeekable) return;
         var length = _player.Length;
         _player.Time = Math.Clamp(_player.Time + seconds * 1000L, 0, Math.Max(0, length - 500));
-        ShowToast(seconds < 0 ? IconBack : IconForward, seconds < 0 ? $"{-seconds} sn geri" : $"{seconds} sn ileri");
+        ShowToast(seconds < 0 ? IconBack : IconForward, seconds < 0 ? L.SecondsBack(-seconds) : L.SecondsForward(seconds));
         UpdateTime();
     }
 
     void Next()
     {
-        if (!_playlist.HasNext) { ShowToast(IconNext, "Klasördeki son video"); return; }
+        if (!_playlist.HasNext) { ShowToast(IconNext, L.LastInFolder); return; }
         _playlist.MoveNext();
         PlayCurrent();
     }
 
     void Previous()
     {
-        if (!_playlist.HasPrevious) { ShowToast(IconPrev, "Klasördeki ilk video"); return; }
+        if (!_playlist.HasPrevious) { ShowToast(IconPrev, L.FirstInFolder); return; }
         _playlist.MovePrevious();
         PlayCurrent();
     }
@@ -296,7 +295,7 @@ public partial class MainWindow : Window
         _rate = rate;
         _player.Rate = rate;
         UpdateSpeedButtons();
-        ShowToast("\uEC4A", $"Hız {rate:0.##}x");
+        ShowToast("\uEC4A", L.Speed(rate));
     }
 
     // ---------------------------------------------------------------- İlerleme çubuğu
@@ -372,7 +371,7 @@ public partial class MainWindow : Window
     {
         if (_settings.Muted && delta > 0) SetMuted(false);
         VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + delta, 0, 100);
-        ShowToast(VolumeIcon(), $"Ses {(int)VolumeSlider.Value}");
+        ShowToast(VolumeIcon(), L.Volume((int)VolumeSlider.Value));
     }
 
     void SetMuted(bool muted)
@@ -446,7 +445,7 @@ public partial class MainWindow : Window
         // Sürüklerken video geçici olarak duraklatılıyor; düğme o sırada değişmesin
         var playing = _player.IsPlaying || _resumeAfterScrub;
         PlayButton.Content = playing ? IconPause : IconPlay;
-        PlayButton.ToolTip = playing ? "Duraklat (Boşluk)" : "Oynat (Boşluk)";
+        PlayButton.ToolTip = playing ? L.PauseTip : L.PlayTip;
         var hasFile = _playlist.Current != null;
         BackButton.IsEnabled = ForwardButton.IsEnabled = hasFile;
         ShowInFolderButton.IsEnabled = hasFile;
@@ -458,15 +457,15 @@ public partial class MainWindow : Window
     {
         PrevButton.IsEnabled = _playlist.HasPrevious;
         NextButton.IsEnabled = _playlist.HasNext;
-        PrevButton.ToolTip = _playlist.PeekPrevious() is { } p ? $"Önceki: {Path.GetFileName(p)} (P)" : "Önceki video (P)";
-        NextButton.ToolTip = _playlist.PeekNext() is { } n ? $"Sonraki: {Path.GetFileName(n)} (N)" : "Sonraki video (N)";
+        PrevButton.ToolTip = _playlist.PeekPrevious() is { } p ? L.PreviousNamedTip(Path.GetFileName(p)) : L.PreviousVideoTip;
+        NextButton.ToolTip = _playlist.PeekNext() is { } n ? L.NextNamedTip(Path.GetFileName(n)) : L.NextVideoTip;
     }
 
     void UpdateWindowButtons()
     {
         var maximized = WindowState == WindowState.Maximized && !_fullscreen;
         MaxButton.Content = maximized ? IconRestore : IconMaximize;
-        MaxButton.ToolTip = maximized ? "Önceki boyuta getir" : "Ekranı kapla";
+        MaxButton.ToolTip = maximized ? L.Restore : L.Maximize;
         // Tam ekranda ve mini görünümde pencere düğmelerine gerek yok
         CaptionButtons.Visibility = _fullscreen || _mini ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -807,7 +806,7 @@ public partial class MainWindow : Window
             case Key.Down: ChangeVolume(-5); break;
             case Key.M or Key.VolumeMute:
                 SetMuted(!_settings.Muted);
-                ShowToast(VolumeIcon(), _settings.Muted ? "Ses kapalı" : "Ses açık");
+                ShowToast(VolumeIcon(), _settings.Muted ? L.Muted : L.Unmuted);
                 break;
             case Key.F or Key.F11: ToggleFullscreen(); break;
             case Key.Enter when alt: ToggleFullscreen(); break;
@@ -870,7 +869,7 @@ public partial class MainWindow : Window
             MoveWindowTo(_rectBeforeFullscreen);
         }
         FullButton.Content = _fullscreen ? IconExitFull : IconFull;
-        FullButton.ToolTip = _fullscreen ? "Tam ekrandan çık (Esc)" : "Tam ekran (F11 / çift tık)";
+        FullButton.ToolTip = _fullscreen ? L.ExitFullscreenTip : L.FullscreenTip;
         UpdateWindowButtons();
         ShowControls();
     }
@@ -906,7 +905,7 @@ public partial class MainWindow : Window
         FullButton.Visibility = MoreButton.Visibility = VolumeButton.Visibility = extra;
         TitleText.Visibility = extra;
         MiniButton.Content = _mini ? "\uE73F" : "\uE8A7";
-        MiniButton.ToolTip = _mini ? "Mini görünümden çık" : "Mini görünümde oynat";
+        MiniButton.ToolTip = _mini ? L.ExitMiniTip : L.MiniTip;
         UpdateWindowButtons();
         ShowControls();
     }
@@ -960,9 +959,9 @@ public partial class MainWindow : Window
 
     void UpdateEndActionButtons()
     {
-        SetCheckItem(EndStop, "Dur", _settings.EndAction == EndAction.Stop);
-        SetCheckItem(EndNext, "Klasördeki sonraki videoya geç", _settings.EndAction == EndAction.Next);
-        SetCheckItem(EndRepeat, "Tekrarla", _settings.EndAction == EndAction.Repeat);
+        SetCheckItem(EndStop, L.EndStop, _settings.EndAction == EndAction.Stop);
+        SetCheckItem(EndNext, L.EndNext, _settings.EndAction == EndAction.Next);
+        SetCheckItem(EndRepeat, L.EndRepeat, _settings.EndAction == EndAction.Repeat);
     }
 
     static void SetCheckItem(Button button, string text, bool isChecked)
@@ -1024,13 +1023,11 @@ public partial class MainWindow : Window
         {
             FileAssociation.Register();
             FileAssociation.OpenDefaultAppsSettings();
-            MessageBox.Show(this,
-                "Açılan Ayarlar penceresinde \"Video oynatıcısı\" başlığına tıklayıp listeden \"Video Player\"ı seçin.",
-                "Varsayılan oynatıcı", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, L.DefaultPlayerHelp, L.DefaultPlayerTitle, MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, "Kayıt yapılamadı: " + ex.Message, "Varsayılan oynatıcı",
+            MessageBox.Show(this, L.RegistrationFailed(ex.Message), L.DefaultPlayerTitle,
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }

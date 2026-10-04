@@ -26,15 +26,15 @@
             <StackPanel x:Name="Welcome" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="56"
                            HorizontalAlignment="Center" Opacity="0.8" />
-                <TextBlock Text="Bir videoyu buraya sürükleyin" FontSize="20" Margin="0,18,0,6"
+                <TextBlock Text="{x:Static local:L.DropHere}" FontSize="20" Margin="0,18,0,6"
                            HorizontalAlignment="Center" />
-                <TextBlock Text="veya" FontSize="14" Opacity="0.6" HorizontalAlignment="Center" />
+                <TextBlock Text="{x:Static local:L.Or}" FontSize="14" Opacity="0.6" HorizontalAlignment="Center" />
                 <Button x:Name="OpenButton" Margin="0,10,0,0" HorizontalAlignment="Center" Height="36"
                         Focusable="False" Cursor="Hand" Click="OpenButton_Click">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bg" Background="{DynamicResource AccentBrush}" CornerRadius="4" Padding="24,0">
-                                <TextBlock Text="Dosya seç" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                <TextBlock Text="{x:Static local:L.ChooseFile}" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
@@ -66,11 +66,11 @@
                 </Grid.Background>
                 <StackPanel x:Name="CaptionButtons" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                     <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="&#xE921;"
-                            ToolTip="Simge durumuna küçült" Click="MinButton_Click" />
+                            ToolTip="{x:Static local:L.Minimize}" Click="MinButton_Click" />
                     <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;"
-                            ToolTip="Ekranı kapla" Click="MaxButton_Click" />
+                            ToolTip="{x:Static local:L.Maximize}" Click="MaxButton_Click" />
                     <Button x:Name="CloseButton" Style="{StaticResource CaptionButton}" Content="&#xE8BB;"
-                            ToolTip="Kapat" Tag="#E81123" Click="CloseButton_Click" />
+                            ToolTip="{x:Static local:L.Close}" Tag="#E81123" Click="CloseButton_Click" />
                 </StackPanel>
             </Grid>
 
@@ -115,7 +115,7 @@
                     </Grid>
                     <TextBlock x:Name="LengthText" Grid.Column="2" Text="0:00" FontSize="12" VerticalAlignment="Center"
                                MinWidth="44" TextAlignment="Right" Cursor="Hand"
-                               ToolTip="Kalan süre / toplam süre"
+                               ToolTip="{x:Static local:L.RemainingOrTotal}"
                                MouseLeftButtonUp="LengthText_Click" />
                 </Grid>
 
@@ -129,29 +129,29 @@
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="VolumeButton" Style="{StaticResource IconButton}" Content="&#xE995;"
-                                ToolTip="Ses (Yukarı/Aşağı ok)" Click="VolumeButton_Click" />
+                                ToolTip="{x:Static local:L.VolumeTip}" Click="VolumeButton_Click" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="PrevButton" Style="{StaticResource IconButton}" Content="&#xE892;"
-                                ToolTip="Önceki video (P)" Click="PrevButton_Click" />
+                                ToolTip="{x:Static local:L.PreviousVideoTip}" Click="PrevButton_Click" />
                         <Button x:Name="BackButton" Style="{StaticResource IconButton}" Content="&#xED3C;" FontSize="20"
-                                ToolTip="10 saniye geri (Sol ok)" Click="BackButton_Click" Margin="8,0" />
+                                ToolTip="{x:Static local:L.BackTip}" Click="BackButton_Click" Margin="8,0" />
                         <Button x:Name="PlayButton" Style="{StaticResource PlayButton}" Content="&#xE768;"
-                                ToolTip="Oynat (Boşluk)" Click="PlayButton_Click" />
+                                ToolTip="{x:Static local:L.PlayTip}" Click="PlayButton_Click" />
                         <Button x:Name="ForwardButton" Style="{StaticResource IconButton}" Content="&#xED3D;" FontSize="20"
-                                ToolTip="30 saniye ileri (Sağ ok)" Click="ForwardButton_Click" Margin="8,0" />
+                                ToolTip="{x:Static local:L.ForwardTip}" Click="ForwardButton_Click" Margin="8,0" />
                         <Button x:Name="NextButton" Style="{StaticResource IconButton}" Content="&#xE893;"
-                                ToolTip="Sonraki video (N)" Click="NextButton_Click" />
+                                ToolTip="{x:Static local:L.NextVideoTip}" Click="NextButton_Click" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="MiniButton" Style="{StaticResource IconButton}" Content="&#xE8A7;"
-                                ToolTip="Mini görünümde oynat" Click="MiniButton_Click" />
+                                ToolTip="{x:Static local:L.MiniTip}" Click="MiniButton_Click" />
                         <Button x:Name="FullButton" Style="{StaticResource IconButton}" Content="&#xE740;"
-                                ToolTip="Tam ekran (F11 / çift tık)" Click="FullButton_Click" />
+                                ToolTip="{x:Static local:L.FullscreenTip}" Click="FullButton_Click" />
                         <Button x:Name="MoreButton" Style="{StaticResource IconButton}" Content="&#xE712;"
-                                ToolTip="Diğer seçenekler" Click="MoreButton_Click" />
+                                ToolTip="{x:Static local:L.MoreTip}" Click="MoreButton_Click" />
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -162,7 +162,7 @@
                 <Border Style="{StaticResource FlyoutBorder}" Padding="6,4,14,4">
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="MuteButton" Style="{StaticResource IconButton}" Content="&#xE995;"
-                                ToolTip="Sesi kapat (M)" Click="MuteButton_Click" />
+                                ToolTip="{x:Static local:L.MuteTip}" Click="MuteButton_Click" />
                         <Slider x:Name="VolumeSlider" Style="{StaticResource FlatSlider}" Width="180" Minimum="0" Maximum="100"
                                 VerticalAlignment="Center" Margin="6,0" ValueChanged="VolumeSlider_ValueChanged" />
                         <TextBlock x:Name="VolumeText" Text="80" Foreground="White" FontSize="14" MinWidth="28"
@@ -175,10 +175,10 @@
             <Popup x:Name="MorePopup" Placement="Top" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                 <Border Style="{StaticResource FlyoutBorder}" TextElement.Foreground="White">
                     <StackPanel MinWidth="250">
-                        <TextBlock Text="Oynatma hızı" FontSize="12" Opacity="0.6" Margin="12,8,12,4" />
+                        <TextBlock Text="{x:Static local:L.PlaybackSpeed}" FontSize="12" Opacity="0.6" Margin="12,8,12,4" />
                         <WrapPanel x:Name="SpeedPanel" Margin="8,0,8,4" />
                         <Separator Background="#33FFFFFF" Margin="4,6" />
-                        <TextBlock Text="Video bitince" FontSize="12" Opacity="0.6" Margin="12,4,12,4" />
+                        <TextBlock Text="{x:Static local:L.WhenVideoEnds}" FontSize="12" Opacity="0.6" Margin="12,4,12,4" />
                         <Button x:Name="EndStop" Style="{StaticResource MenuButton}" Tag="Stop" Click="EndAction_Click" />
                         <Button x:Name="EndNext" Style="{StaticResource MenuButton}" Tag="Next" Click="EndAction_Click" />
                         <Button x:Name="EndRepeat" Style="{StaticResource MenuButton}" Tag="Repeat" Click="EndAction_Click" />
@@ -186,19 +186,19 @@
                         <Button Style="{StaticResource MenuButton}" Click="MenuOpen_Click">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE8E5;" FontFamily="{StaticResource IconFont}" Width="28" VerticalAlignment="Center" />
-                                <TextBlock Text="Dosya aç…" />
+                                <TextBlock Text="{x:Static local:L.OpenFile}" />
                             </StackPanel>
                         </Button>
                         <Button x:Name="ShowInFolderButton" Style="{StaticResource MenuButton}" Click="ShowInFolder_Click">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE838;" FontFamily="{StaticResource IconFont}" Width="28" VerticalAlignment="Center" />
-                                <TextBlock Text="Dosya konumunu aç" />
+                                <TextBlock Text="{x:Static local:L.OpenFileLocation}" />
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource MenuButton}" Click="MakeDefault_Click">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" Width="28" VerticalAlignment="Center" />
-                                <TextBlock Text="Varsayılan video oynatıcısı yap" />
+                                <TextBlock Text="{x:Static local:L.MakeDefault}" />
                             </StackPanel>
                         </Button>
                     </StackPanel>

@@ -28,8 +28,8 @@ public static class FileAssociation
 
         using (var prog = classes.CreateSubKey(ProgId))
         {
-            prog.SetValue("", "Video dosyası");
-            prog.SetValue("FriendlyTypeName", "Video dosyası");
+            prog.SetValue("", L.VideoFileType);
+            prog.SetValue("FriendlyTypeName", L.VideoFileType);
             using (var icon = prog.CreateSubKey("DefaultIcon")) icon.SetValue("", $"\"{exe}\",0");
             using (var cmd = prog.CreateSubKey(@"shell\open\command")) cmd.SetValue("", command);
         }
@@ -53,7 +53,7 @@ public static class FileAssociation
         using (var caps = Registry.CurrentUser.CreateSubKey(CapabilitiesKey))
         {
             caps.SetValue("ApplicationName", AppName);
-            caps.SetValue("ApplicationDescription", "mpv altyapılı video oynatıcı");
+            caps.SetValue("ApplicationDescription", L.AppDescription);
             caps.SetValue("ApplicationIcon", $"\"{exe}\",0");
             using var assoc = caps.CreateSubKey("FileAssociations");
             foreach (var ext in FolderPlaylist.VideoExtensions) assoc.SetValue(ext, ProgId);

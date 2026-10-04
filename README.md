@@ -1,54 +1,59 @@
 # Video Player
 
-Windows 10/11 için Filmler ve TV tarzında, sade bir video oynatıcı. Altyapıda **mpv**
-çalışır, böylece her formatı oynatır ve Discord gibi ekran paylaşımlarında takılma yapmaz.
+A clean, Movies & TV–style video player for Windows 10/11, powered by **mpv**. It plays
+virtually any format and stays smooth during screen sharing (e.g. Discord streams).
 
-## Özellikler
+The interface is shown in Turkish on Turkish Windows and in English everywhere else.
 
-- Filmler ve TV'ye benzeyen kenarlıksız arayüz; kontroller ve pencere düğmeleri fare
-  durunca kaybolur
-- Açılan videonun klasöründeki diğer videolar Dosya Gezgini sırasıyla listeye girer
-- **Tutup yana çekme:** video pencere içinde kayar, yeterince çekip bırakınca kayıp çıkar
-  ve klasördeki sonraki/önceki video başlar
-- **Hassas sarma:** çubuğun herhangi bir yerine basıp sürükleme; basılıyken video duraklar,
-  fare nerede durursa o kare görünür. İmleci çubuktan yukarı kaldırdıkça 3 kata kadar
-  daha ince ayar yapılır
-- Ekranın yenileme hızıyla senkron çizim (kayma 144 Hz ekranda akıcı)
-- Tam ekran, ekranı kapla ve her zaman üstte kalan mini görünüm
-- Oynatma hızı (0,5x – 2x), video bitince dur / sonrakine geç / tekrarla
-- Pencere boyutu, konumu ve ses ayarları hatırlanır
-- Tek pencere: oynatıcı açıkken başka bir videoya çift tıklamak aynı pencerede açar
-- "Varsayılan video oynatıcısı yap" seçeneği
+## Features
 
-## Kısayollar
+- Borderless Movies & TV–style interface; controls and window buttons fade out when the
+  mouse stops moving
+- Other videos in the opened file's folder are queued in File Explorer order
+- **Drag to switch:** grab the video and drag it sideways — it slides inside the window,
+  and if you drag far enough it slides out and the next/previous video in the folder starts
+- **Precise seeking:** press anywhere on the seek bar and drag; the video pauses while the
+  button is held and shows the exact frame under the cursor. Move the cursor up away from the
+  bar for up to 3× finer control
+- Rendering synced to the display refresh rate (smooth sliding on 144 Hz screens)
+- Full screen, maximize and an always-on-top mini view
+- Playback speed (0.5× – 2×); when a video ends: stop / play next in folder / repeat
+- Remembers window size, position and volume
+- Single window: opening another video while the player is running reuses the same window
+- "Make default video player" option
 
-| Tuş | İşlev |
+## Keyboard shortcuts
+
+| Key | Action |
 |---|---|
-| Boşluk / K | Oynat / duraklat |
-| ← / → | 10 sn geri / 30 sn ileri |
-| ↑ / ↓ | Ses |
-| M | Sesi kapat / aç |
-| F / F11 / çift tık | Tam ekran (Esc ile çıkış) |
-| N / P | Sonraki / önceki video |
-| . / , | Hızlandır / yavaşlat |
-| Ctrl+O | Dosya aç |
-| Farenin yan tuşları | Önceki / sonraki video |
+| Space / K | Play / pause |
+| ← / → | Back 10 s / forward 30 s |
+| ↑ / ↓ | Volume |
+| M | Mute / unmute |
+| F / F11 / double-click | Full screen (Esc to exit) |
+| N / P | Next / previous video |
+| . / , | Faster / slower |
+| Ctrl+O | Open file |
+| Mouse side buttons | Previous / next video |
 
-## Derleme
+## Building
 
-Gerekenler: .NET 8 SDK, 7-Zip.
+Requirements: .NET 8 SDK, 7-Zip.
 
 ```powershell
-# mpv motoru için kütüphaneyi indir (bir kez)
+# Download the mpv library (once)
 .\tools\libmpv-indir.ps1
 
-# Derle ve Uygulama klasörüne çıkar
+# Build into the Uygulama folder
 dotnet publish -c Release -o Uygulama -p:DebugType=none
 ```
 
-`libmpv-2.dll` GitHub'ın dosya boyutu sınırını aştığı için depoda yok; betik onu
-`lib\` klasörüne indirir ve derleme çıktıya kopyalar.
+`libmpv-2.dll` is not in the repository because it exceeds GitHub's file size limit; the
+script downloads it into `lib\` and the build copies it to the output.
 
-## Kullanılan bileşenler
+To try the other interface language, set the `VIDEOPLAYER_LANG` environment variable to
+`en` or `tr` before starting the player.
 
-- [mpv](https://mpv.io) — libmpv, [shinchiro derlemesi](https://github.com/shinchiro/mpv-winbuild-cmake)
+## Credits
+
+- [mpv](https://mpv.io) — libmpv, [shinchiro builds](https://github.com/shinchiro/mpv-winbuild-cmake)
