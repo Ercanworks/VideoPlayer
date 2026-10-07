@@ -28,7 +28,25 @@ public sealed class FolderPlaylist
     public bool HasPrevious => Index > 0;
     public int Count => _files.Count;
 
+    public static readonly HashSet<string> SubtitleExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".srt", ".ass", ".ssa", ".vtt", ".sub", ".idx", ".sup", ".smi",
+    };
+
     public static bool IsVideo(string path) => VideoExtensions.Contains(Path.GetExtension(path));
+    public static bool IsSubtitle(string path) => SubtitleExtensions.Contains(Path.GetExtension(path));
+
+    /// <summary>Klasördeki ilk video (Dosya Gezgini sırasıyla); yoksa null.</summary>
+    public static string? FirstVideoIn(string dir)
+    {
+        try
+        {
+            var files = Directory.EnumerateFiles(dir).Where(IsVideo).ToList();
+            files.Sort(new ExplorerOrder());
+            return files.FirstOrDefault();
+        }
+        catch { return null; }
+    }
 
     public void Load(string file)
     {

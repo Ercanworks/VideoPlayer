@@ -46,6 +46,14 @@ public sealed class MpvEngine : IDisposable
         // (display-resample; ara kare üretme de bunu gerektirir) gömülü pencerede karelerin
         // %5-9'unu ekrana hiç ulaştırmıyordu, video düşük kare hızındaymış gibi görünüyordu
         SetOption("video-sync", "audio");
+        // Altyazılar: videoyla aynı adla başlayan dosyalar da yüklensin (Film.tr.srt, Film.Turkish.srt)
+        // ve yaygın alt klasörlerde de aransın; Windows dilindeki altyazı seçilsin ama ses de o
+        // dildeyse (ör. Türkçe filmde Türkçe altyazı) yalnızca "zorunlu" altyazılar açılsın
+        SetOption("sub-auto", "fuzzy");
+        // Windows büyük/küçük harf ayırmıyor; "Subs" ve "subs" ikisi de yazılırsa altyazı iki kez yüklenir
+        SetOption("sub-file-paths", "Subs;Subtitles;Sub;Altyazı;Altyazılar;Altyazilar");
+        SetOption("slang", DefaultSubtitleLanguages);
+        SetOption("subs-with-matching-audio", "forced");
         // Video bitince dosyayı kapatma, son karede bekle (geri sarılabilsin)
         SetOption("keep-open", "yes");
         SetOption("idle", "yes");
@@ -68,6 +76,7 @@ public sealed class MpvEngine : IDisposable
         Native.mpv_observe_property(_ctx, 1, U("pause"), Native.FormatFlag);
         Native.mpv_observe_property(_ctx, 2, U("eof-reached"), Native.FormatFlag);
         Native.mpv_observe_property(_ctx, 3, U("video-params/aspect"), Native.FormatDouble);
+        Native.mpv_observe_property(_ctx, 4, U("video-params/rotate"), Native.FormatInt64);
         _eventThread = new Thread(EventLoop) { IsBackground = true, Name = "mpv olayları" };
         _eventThread.Start();
 
@@ -84,7 +93,95 @@ public sealed class MpvEngine : IDisposable
         _error = false;
         SetProperty("pause", "no");
         SetPan(0);
+        ApplyTrackPreferences();
         Command("loadfile", path, "replace");
+    }
+
+    // ---------------------------------------------------------------- Altyazı ve ses izleri
+
+    static readonly string DefaultSubtitleLanguages =
+        CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "tr" ? "tr,tur" : "en,eng";
+
+    /// <summary>
+    /// Kullanıcının bu oturumda yaptığı seçim sonraki videolara da uygulanır: altyazıyı
+    /// kapattıysa kapalı açılır, bir dil seçtiyse o dil, bir ses dili seçtiyse o ses tercih edilir.
+    /// </summary>
+    public bool SubtitlesOff { get; set; }
+    public string? PreferredSubtitleLanguage { get; set; }
+    public string? PreferredAudioLanguage { get; set; }
+
+    void ApplyTrackPreferences()
+    {
+        SetProperty("sid", SubtitlesOff ? "no" : "auto");
+        SetProperty("slang", PreferredSubtitleLanguage ?? DefaultSubtitleLanguages);
+        SetProperty("aid", "auto");
+        SetProperty("alang", PreferredAudioLanguage ?? "");
+    }
+
+    public sealed record Track(int Id, string Type, string? Language, string? Title, string? Codec,
+        int Channels, bool Selected, bool External, bool Forced);
+
+    /// <summary>Açık dosyadaki altyazı ve ses izleri (mpv'nin sırasıyla).</summary>
+    public List<Track> Tracks
+    {
+        get
+        {
+            var list = new List<Track>();
+            var json = GetString("track-list");
+            if (string.IsNullOrEmpty(json)) return list;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                foreach (var t in doc.RootElement.EnumerateArray())
+                {
+                    string? Str(string name) => t.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+                    bool Flag(string name) => t.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.True;
+                    int channels = t.TryGetProperty("demux-channel-count", out var ch) && ch.TryGetInt32(out var c) ? c : 0;
+                    list.Add(new Track(t.GetProperty("id").GetInt32(), Str("type") ?? "", Str("lang"), Str("title"),
+                        Str("codec"), channels, Flag("selected"), Flag("external"), Flag("forced")));
+                }
+            }
+            catch (System.Text.Json.JsonException) { }
+            return list;
+        }
+    }
+
+    /// <summary>Altyazı izini seçer; null altyazıyı kapatır.</summary>
+    public void SelectSubtitle(int? id) => SetProperty("sid", id?.ToString(CultureInfo.InvariantCulture) ?? "no");
+    public void SelectAudio(int id) => SetProperty("aid", id.ToString(CultureInfo.InvariantCulture));
+
+    /// <summary>Dışarıdan bir altyazı dosyası ekleyip seçer.</summary>
+    public void AddSubtitle(string path) => CommandAsync("sub-add", path, "select");
+
+    const int DefaultSubMargin = 34; // mpv'nin varsayılanı, 720 satırlık ölçekte
+
+    /// <summary>
+    /// Altyazıları pencerenin altından en az bu oran kadar yukarıda tutar (0-1); kontroller
+    /// görünürken altyazı düğmelerin altında kalmasın diye. mpv'nin birimi 720 satırlık ölçek.
+    /// </summary>
+    public void SetSubtitleClearance(double fractionOfHeight)
+    {
+        var margin = Math.Max(DefaultSubMargin, (int)Math.Round(fractionOfHeight * 720));
+        if (margin == _subMargin || !_initialized) return;
+        _subMargin = margin;
+        SetProperty("sub-margin-y", margin.ToString(CultureInfo.InvariantCulture));
+    }
+
+    int _subMargin = DefaultSubMargin;
+
+    /// <summary>Altyazı görünümü (Windows'un altyazı ayarlarından); null olanlar mpv'nin varsayılanı.</summary>
+    public sealed record SubtitleStyle(double Scale, string? Font, string? Color, string? BackColor,
+        double? OutlineSize, double? ShadowOffset);
+
+    public void ApplySubtitleStyle(SubtitleStyle s)
+    {
+        SetProperty("sub-scale", s.Scale.ToString("0.###", CultureInfo.InvariantCulture));
+        SetProperty("sub-font", s.Font ?? "sans-serif");
+        SetProperty("sub-color", s.Color ?? "#FFFFFFFF");
+        SetProperty("sub-border-style", s.BackColor != null ? "background-box" : "outline-and-shadow");
+        SetProperty("sub-back-color", s.BackColor ?? "#AF000000");
+        SetProperty("sub-outline-size", (s.OutlineSize ?? 1.65).ToString("0.##", CultureInfo.InvariantCulture));
+        SetProperty("sub-shadow-offset", (s.ShadowOffset ?? 0).ToString("0.##", CultureInfo.InvariantCulture));
     }
 
     public void SetPause(bool pause) => SetProperty("pause", pause ? "yes" : "no");
@@ -136,6 +233,8 @@ public sealed class MpvEngine : IDisposable
         // En-boy oranı olay döngüsünde izleniyor; burada mpv'ye hiç soru sorulmuyor ki
         // mpv meşgulken arayüz beklemesin.
         var aspect = _aspect;
+        // Telefonla dik çekilmiş videolarda mpv döndürmeden önceki oranı bildiriyor
+        if (_rotate % 180 == 90 && aspect > 0) aspect = 1 / aspect;
         var shown = aspect > 0 && viewHeight > 0 ? Math.Min(viewWidth, viewHeight * aspect) : viewWidth;
         SetPan(shown > 0 ? pixels / shown : 0);
     }
@@ -148,6 +247,7 @@ public sealed class MpvEngine : IDisposable
 
     static readonly byte[] PanName = U("video-pan-x");
     volatile float _aspect;
+    volatile int _rotate;
 
     void EventLoop()
     {
@@ -185,6 +285,12 @@ public sealed class MpvEngine : IDisposable
                     {
                         _aspect = prop.Format == Native.FormatDouble && prop.Data != IntPtr.Zero
                             ? (float)BitConverter.Int64BitsToDouble(Marshal.ReadInt64(prop.Data)) : 0;
+                        break;
+                    }
+                    if (ev.ReplyUserdata == 4)
+                    {
+                        _rotate = prop.Format == Native.FormatInt64 && prop.Data != IntPtr.Zero
+                            ? (int)Marshal.ReadInt64(prop.Data) : 0;
                         break;
                     }
                     if (prop.Format != Native.FormatFlag || prop.Data == IntPtr.Zero) break;
@@ -227,6 +333,15 @@ public sealed class MpvEngine : IDisposable
         return Native.mpv_get_property_double(_ctx, U(name), Native.FormatDouble, out var v) >= 0 ? v : 0;
     }
 
+    string? GetString(string name)
+    {
+        if (!_initialized) return null;
+        var p = Native.mpv_get_property_string(_ctx, U(name));
+        if (p == IntPtr.Zero) return null;
+        try { return Marshal.PtrToStringUTF8(p); }
+        finally { Native.mpv_free(p); }
+    }
+
     bool GetFlag(string name)
     {
         if (!_initialized) return false;
@@ -265,7 +380,7 @@ public sealed class MpvEngine : IDisposable
     {
         const string Lib = "libmpv-2.dll";
 
-        public const int FormatFlag = 3, FormatDouble = 5;
+        public const int FormatFlag = 3, FormatInt64 = 4, FormatDouble = 5;
         public const int EventShutdown = 1, EventEndFile = 7, EventFileLoaded = 8, EventPropertyChange = 22;
         public const int EndReasonStop = 2, EndReasonQuit = 3, EndReasonError = 4;
 
@@ -284,6 +399,8 @@ public sealed class MpvEngine : IDisposable
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mpv_wakeup(IntPtr ctx);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mpv_set_option_string(IntPtr ctx, byte[] name, byte[] value);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mpv_set_property_string(IntPtr ctx, byte[] name, byte[] value);
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr mpv_get_property_string(IntPtr ctx, byte[] name);
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mpv_free(IntPtr data);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "mpv_get_property")]
         public static extern int mpv_get_property_double(IntPtr ctx, byte[] name, int format, out double value);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "mpv_get_property")]

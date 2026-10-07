@@ -160,6 +160,9 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="VolumeButton" Style="{StaticResource RevealButton}" Content="&#xE995;"
                                 ToolTip="{x:Static local:L.VolumeTip}" Click="VolumeButton_Click" />
+                        <!-- Altyazı ve ses izleri (Filmler ve TV'deki gibi sesin hemen sağında, her zaman görünür) -->
+                        <Button x:Name="TracksButton" Style="{StaticResource RevealButton}" Content="&#xED1E;"
+                                ToolTip="{x:Static local:L.SubtitlesTip}" Click="TracksButton_Click" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -209,6 +212,13 @@
                         <TextBlock Text="{x:Static local:L.PlaybackSpeed}" FontSize="12" Opacity="0.6" Margin="12,8,12,4" />
                         <StackPanel x:Name="SpeedPanel" />
                     </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Altyazı ve ses menüsü: düğmenin üstünde ortalı, içeriği açılırken doldurulur -->
+            <Popup x:Name="TracksPopup" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Style="{StaticResource FlyoutBorder}" TextElement.Foreground="White">
+                    <StackPanel x:Name="TracksPanel" MinWidth="220" />
                 </Border>
             </Popup>
 

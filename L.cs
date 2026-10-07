@@ -43,6 +43,26 @@ public static class L
     public static string ExitFullscreenTip => T("Tam ekrandan çık (Esc)", "Exit full screen (Esc)");
     public static string MoreTip => T("Diğer seçenekler", "More options");
     public static string MuteTip => T("Sesi kapat (M)", "Mute (M)");
+    public static string SubtitlesTip => T("Altyazı ve ses menüsünü göster (C)", "Show subtitles and audio menu (C)");
+
+    // Altyazı ve ses menüsü
+    public static string Subtitles => T("Altyazılar", "Subtitles");
+    public static string Audio => T("Ses", "Audio");
+    public static string Off => T("Kapalı", "Off");
+    public static string ChooseSubtitleFile => T("Altyazı dosyası seç", "Choose subtitle file");
+    public static string SubtitleSettings => T("Altyazı ayarları", "Subtitle settings");
+    public static string Forced => T("zorunlu", "forced");
+    public static string Channels(int n) => n switch
+    {
+        6 => "5.1",
+        8 => "7.1",
+        _ => T($"{n} kanal", n == 1 ? "1 channel" : $"{n} channels"),
+    };
+    public static string SubtitleFiles => T("Altyazı dosyaları", "Subtitle files");
+    public static string SubtitleOn(string name) => T($"Altyazı: {name}", $"Subtitles: {name}");
+    public static string SubtitlesOff => T("Altyazı kapalı", "Subtitles off");
+    public static string NoSubtitles => T("Bu videoda altyazı yok", "This video has no subtitles");
+    public static string AudioTrack(string name) => T($"Ses: {name}", $"Audio: {name}");
 
     // Diğer seçenekler menüsü
     public static string SpeedTip => T("Oynatma hızı (Shift + . / Shift + ,)", "Playback speed (Shift + . / Shift + ,)");
@@ -79,6 +99,62 @@ public static class L
     public static string RegistrationFailed(string error) => T($"Kayıt yapılamadı: {error}", $"Registration failed: {error}");
     public static string VideoFileType => T("Video dosyası", "Video file");
     public static string AppDescription => T("mpv altyapılı video oynatıcı", "Video player powered by mpv");
+
+    // Dil adları (video dosyalarındaki ISO 639 kodlarından)
+
+    // Matroska'da sık görülen ISO 639-2/B kodları; .NET yalnızca 639-2/T kodlarını tanıyor
+    static readonly Dictionary<string, string> BibliographicCodes = new()
+    {
+        ["ger"] = "de", ["fre"] = "fr", ["dut"] = "nl", ["chi"] = "zh", ["cze"] = "cs", ["gre"] = "el",
+        ["per"] = "fa", ["rum"] = "ro", ["slo"] = "sk", ["baq"] = "eu", ["arm"] = "hy", ["geo"] = "ka",
+        ["ice"] = "is", ["mac"] = "mk", ["may"] = "ms", ["alb"] = "sq", ["bur"] = "my", ["wel"] = "cy",
+        ["tib"] = "bo", ["scc"] = "sr", ["scr"] = "hr",
+    };
+
+    /// <summary>"tur" / "tr" → "Türkçe" (Windows diliyle); bilinmeyen kod olduğu gibi, boşsa null.</summary>
+    public static string? LanguageName(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+        code = code.Trim().ToLowerInvariant();
+        if (code is "und" or "zxx" or "mis" or "mul") return null;
+        if (BibliographicCodes.TryGetValue(code, out var two)) code = two;
+        try
+        {
+            var culture = code.Length == 3
+                ? CultureInfo.GetCultures(CultureTypes.NeutralCultures).FirstOrDefault(c => c.ThreeLetterISOLanguageName == code)
+                : CultureInfo.GetCultureInfo(code);
+            if (culture == null || string.Equals(culture.DisplayName, code, StringComparison.OrdinalIgnoreCase)) return code;
+            var name = culture.DisplayName;
+            return char.ToUpper(name[0], CultureInfo.CurrentUICulture) + name[1..];
+        }
+        catch (CultureNotFoundException)
+        {
+            return code;
+        }
+    }
+
+    /// <summary>Bir dil kodunun 2 ve 3 harfli halleri ("tur" → "tur,tr"); mpv'nin dil tercihine verilir.</summary>
+    public static string LanguageCodes(string code)
+    {
+        code = code.Trim().ToLowerInvariant();
+        var codes = new List<string> { code };
+        if (BibliographicCodes.TryGetValue(code, out var two)) codes.Add(two);
+        try
+        {
+            var culture = code.Length == 3
+                ? CultureInfo.GetCultures(CultureTypes.NeutralCultures).FirstOrDefault(c => c.ThreeLetterISOLanguageName == code)
+                : CultureInfo.GetCultureInfo(code);
+            if (culture != null)
+            {
+                codes.Add(culture.TwoLetterISOLanguageName);
+                codes.Add(culture.ThreeLetterISOLanguageName);
+            }
+        }
+        catch (CultureNotFoundException) { }
+        foreach (var (b, t) in BibliographicCodes)
+            if (codes.Contains(t)) codes.Add(b);
+        return string.Join(",", codes.Distinct());
+    }
 
     // Hata
     public static string MpvMissing => T(

@@ -2,7 +2,9 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- Windows 10 API'leri: medya tuşları / Windows medya denetimi ve Windows altyazı ayarları -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -12,13 +14,13 @@
     <AssemblyName>VideoPlayer</AssemblyName>
     <RootNamespace>Oynatici</RootNamespace>
     <Product>Video Player</Product>
-    <Version>1.9.2</Version>
+    <Version>1.10.0</Version>
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- mpv motoru (github.com/shinchiro/mpv-winbuild-cmake, 20261004) -->
-    <!-- GitHub 100 MB'tan bÃ¼yÃ¼k dosya kabul etmediÄŸi iÃ§in depoda yok; tools\libmpv-indir.ps1 indirir -->
+    <!-- GitHub 100 MB'tan büyük dosya kabul etmediği için depoda yok; tools\libmpv-indir.ps1 indirir -->
     <None Include="lib\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('lib\libmpv-2.dll')" />
   </ItemGroup>
 

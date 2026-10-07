@@ -23,6 +23,16 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
   button is held and shows the exact frame under the cursor. Move the cursor up away from the
   bar for up to 3× finer control
 - Even frame pacing: every video frame reaches the screen (e.g. 60 fps video on a 144 Hz screen)
+- **Subtitles and audio tracks:** Movies & TV–style menu next to the volume button to choose
+  embedded or external subtitles and audio tracks, or load a subtitle file (or just drop one on
+  the window). Subtitle files are found automatically even with a language suffix
+  (`Movie.tr.srt`, `Movie.English.srt`) or in a `Subs` folder; subtitles in the Windows display
+  language are preferred, and your choice carries over to the next video in the folder
+- Subtitles move up above the controls while they are visible, and back into the black bar
+  when they fade out
+- Follows the Windows caption settings (Settings > Ease of Access > Captions), like Movies & TV
+- **Media keys work everywhere:** keyboard and headset play/pause/next/previous keys control
+  the player even when it isn't focused, and the Windows media overlay shows the video title
 - Full screen, maximize and an always-on-top mini view
 - Playback speed button (0.25× – 2×) next to mini view; when a video ends: stop / play next in folder / repeat
 - Remembers window size, position and volume
@@ -41,12 +51,14 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 | N / P | Next / previous video |
 | Shift + . / Shift + , | Faster / slower (0.25× steps, like YouTube) |
 | . / , | Next / previous frame (while paused) |
+| C | Subtitles on / off |
+| 0 – 9 | Jump to 0 % – 90 % of the video |
 | Ctrl+O | Open file |
 | Mouse side buttons | Previous / next video |
 
 ## Building
 
-Requirements: .NET 8 SDK, 7-Zip.
+Requirements: .NET 8 SDK (with the Windows 10 SDK targeting pack, restored automatically), 7-Zip.
 
 ```powershell
 # Download the mpv library (once)

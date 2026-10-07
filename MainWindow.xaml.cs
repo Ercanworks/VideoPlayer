@@ -84,7 +84,8 @@ public partial class MainWindow : Window
         _player.EndReached += () => Dispatcher.BeginInvoke(OnEnded);
         _player.Error += () => Dispatcher.BeginInvoke(() =>
         {
-            ShowToast("\uE783", L.CannotPlay);
+            // Başka bir video açılana kadar ekranda kalsın
+            ShowToast("\uE783", L.CannotPlay, sticky: true);
             UpdatePlayState();
         });
 
@@ -117,8 +118,9 @@ public partial class MainWindow : Window
         VolumePopup.PlacementTarget = VolumeButton;
         SpeedPopup.PlacementTarget = SpeedButton;
         MorePopup.PlacementTarget = MoreButton;
+        TracksPopup.PlacementTarget = TracksButton;
         // Menüyü kapatmak için yapılan tık başka bir şeyi tetiklemesin
-        foreach (var popup in new[] { VolumePopup, MorePopup, SpeedPopup })
+        foreach (var popup in AllPopups)
             // Closed olayı kapanma animasyonu bitince geliyor; kapanma anını hemen yakala
             System.ComponentModel.DependencyPropertyDescriptor.FromProperty(Popup.IsOpenProperty, typeof(Popup))
                 .AddValueChanged(popup, (_, _) =>
@@ -167,6 +169,10 @@ public partial class MainWindow : Window
         PreviewKeyDown += OnKeyDown;
         StateChanged += (_, _) => { UpdateWindowButtons(); FitToScreenEdges(); };
         SizeChanged += (_, _) => FitToScreenEdges();
+        Overlay.SizeChanged += (_, _) => UpdateSubtitleLift(0);
+        _subLiftTimer.Tick += (_, _) => StepSubtitleLift();
+        // Windows'un altyazı ayarları değişmiş olabilir (ör. menüden Ayarlar'a gidip dönünce)
+        Activated += (_, _) => ApplySubtitleStyle();
 
         _tick.Start();
     }
@@ -197,6 +203,7 @@ public partial class MainWindow : Window
         UpdateSpeedButtons();
 
         _player.Open(path);
+        HideToast();
 
         Title = Path.GetFileName(path);
         HideTitle(instant: true);
@@ -229,7 +236,14 @@ public partial class MainWindow : Window
     {
         if (e.Data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } files)
         {
-            OpenFile(files[0]);
+            var path = files[0];
+            // Klasör bırakılırsa içindeki ilk video; altyazı dosyası bırakılırsa açık videoya eklenir
+            if (Directory.Exists(path)) path = FolderPlaylist.FirstVideoIn(path) ?? "";
+            if (FolderPlaylist.IsSubtitle(path))
+            {
+                if (_playlist.Current != null) AddSubtitle(path);
+            }
+            else OpenFile(path);
             Activate();
         }
         e.Handled = true;
@@ -244,6 +258,8 @@ public partial class MainWindow : Window
         if (Math.Abs(_player.Rate - _rate) > 0.001) _player.Rate = _rate;
         if (_pendingSeek > 0) _player.Time = _pendingSeek;
         _pendingSeek = -1;
+        ApplySubtitleStyle();
+        UpdateSubtitleLift(0);
         UpdatePlayState();
     }
 
@@ -258,8 +274,10 @@ public partial class MainWindow : Window
                 PlayCurrent();
                 return;
         }
-        // Sonda kal: çubuk sonda dursun, oynat düğmesi baştan başlatsın
-        Seek.Value = Seek.Maximum;
+        // Sonda kal: çubuk videonun bittiği yerde dursun (dosya yarım kalmışsa yarıda),
+        // oynat düğmesi baştan başlatsın
+        long length = _player.Length, time = _player.Time;
+        Seek.Value = time >= length - 1000 ? Seek.Maximum : Math.Max(0, time);
         UpdatePlayState();
         ShowControls();
     }
@@ -461,7 +479,12 @@ public partial class MainWindow : Window
         ShowInFolderButton.IsEnabled = hasFile;
         if (!playing) { ShowControls(); ShowTitle(); }
         else { HideTitle(); RestartHideTimer(); }
+        UpdateMediaControls();
     }
+
+    void UpdateMediaControls() =>
+        _media?.Update(_playlist.Current is { } path ? Path.GetFileNameWithoutExtension(path) : null,
+            _player.IsPlaying || _resumeAfterScrub, _playlist.HasPrevious, _playlist.HasNext);
 
     void UpdatePlaylistButtons()
     {
@@ -470,6 +493,7 @@ public partial class MainWindow : Window
         NextButton.Visibility = _playlist.HasNext ? Visibility.Visible : Visibility.Collapsed;
         PrevButton.ToolTip = _playlist.PeekPrevious() is { } p ? L.PreviousNamedTip(Path.GetFileName(p)) : L.PreviousVideoTip;
         NextButton.ToolTip = _playlist.PeekNext() is { } n ? L.NextNamedTip(Path.GetFileName(n)) : L.NextVideoTip;
+        UpdateMediaControls();
     }
 
     void UpdateWindowButtons()
@@ -488,14 +512,22 @@ public partial class MainWindow : Window
         return $"{(int)t.TotalHours:00}:{t.Minutes:00}:{t.Seconds:00}";
     }
 
-    void ShowToast(string icon, string text)
+    /// <param name="sticky">Kendiliğinden kaybolmasın (ör. oynatılamayan dosya).</param>
+    void ShowToast(string icon, string text, bool sticky = false)
     {
         ToastIcon.Text = icon;
         ToastText.Text = text;
         Toast.BeginAnimation(OpacityProperty, null);
         Toast.Opacity = 1;
         _toastTimer.Stop();
-        _toastTimer.Start();
+        if (!sticky) _toastTimer.Start();
+    }
+
+    void HideToast()
+    {
+        _toastTimer.Stop();
+        Toast.BeginAnimation(OpacityProperty, null);
+        Toast.Opacity = 0;
     }
 
     static void Fade(UIElement element, double to, int ms) =>
@@ -527,6 +559,7 @@ public partial class MainWindow : Window
             FadeLinear(BigTitle, 1, FadeInMs);
             FadeLinear(TitleShade, 1, FadeInMs);
             FadeLinear(ControlsShade, 0, FadeInMs);
+            UpdateSubtitleLift(FadeInMs);
         }
         _titleTimer.Stop();
         _titleTimer.Start();
@@ -542,6 +575,7 @@ public partial class MainWindow : Window
         FadeLinear(BigTitle, 0, ms);
         FadeLinear(TitleShade, 0, ms);
         FadeLinear(ControlsShade, 1, ms);
+        UpdateSubtitleLift(ms);
     }
 
     /// <summary>Tam ekranda Filmler ve TV kontrolleri ve adı 16 px yukarı alıyor.</summary>
@@ -567,6 +601,7 @@ public partial class MainWindow : Window
             FadeLinear(Controls, 1, FadeInMs);
             FadeLinear(TopBar, 1, FadeInMs);
             Overlay.Cursor = null;
+            UpdateSubtitleLift(FadeInMs);
         }
         RestartHideTimer();
     }
@@ -580,7 +615,7 @@ public partial class MainWindow : Window
     void TryHideControls()
     {
         _hideTimer.Stop();
-        if (!_player.IsPlaying || VolumePopup.IsOpen || MorePopup.IsOpen || SpeedPopup.IsOpen || _mouseDown || _seekDrag.IsDragging)
+        if (!_player.IsPlaying || AllPopups.Any(p => p.IsOpen) || _mouseDown || _seekDrag.IsDragging)
             return;
         if (Controls.IsMouseOver || CaptionButtons.IsMouseOver || EdgeArrows.IsMouseOver) { RestartHideTimer(); return; }
 
@@ -594,6 +629,53 @@ public partial class MainWindow : Window
         SeekTip.Visibility = Visibility.Collapsed;
         // Fare videonun üstündeyse imleci de gizle
         if (Overlay.IsMouseOver) Overlay.Cursor = Cursors.None;
+        UpdateSubtitleLift(FadeOutMs);
+    }
+
+    Popup[] AllPopups => new[] { VolumePopup, MorePopup, SpeedPopup, TracksPopup };
+
+    void CloseAllPopups()
+    {
+        foreach (var popup in AllPopups) popup.IsOpen = false;
+    }
+
+    // ---------------------------------------------------------------- Altyazının kontrollerden kaçması
+
+    // Kontroller (duraklatılmışken video adı da) görünürken altyazı onların üstüne kayar,
+    // gizlenince yerine (videonun alt boşluğuna) iner; kontrollerin belirip sönmesiyle aynı sürede
+    readonly DispatcherTimer _subLiftTimer = new() { Interval = TimeSpan.FromMilliseconds(15) };
+    double _subLift, _subLiftFrom, _subLiftTo;
+    long _subLiftStart;
+    int _subLiftMs;
+
+    void UpdateSubtitleLift(int ms)
+    {
+        double h = Overlay.ActualHeight;
+        if (h <= 0 || PresentationSource.FromVisual(Overlay) == null) return;
+        // Altyazının alt kenarı ile çubuk / ad arasında birkaç piksel boşluk kalsın
+        const double gap = 6;
+        double clearance = 0;
+        if (_controlsVisible)
+            clearance = h - Seek.TranslatePoint(new Point(0, 0), Overlay).Y + gap;
+        if (_titleVisible)
+            clearance = Math.Max(clearance, h - BigTitle.TranslatePoint(new Point(0, 0), Overlay).Y + gap);
+        var target = Math.Clamp(clearance / h, 0, 0.7);
+
+        _subLiftFrom = _subLift;
+        _subLiftTo = target;
+        _subLiftStart = Environment.TickCount64;
+        _subLiftMs = ms;
+        StepSubtitleLift();
+        if (ms > 0 && Math.Abs(_subLiftTo - _subLift) > 0.0001) _subLiftTimer.Start();
+    }
+
+    void StepSubtitleLift()
+    {
+        var t = _subLiftMs <= 0 ? 1 : Math.Min(1, (Environment.TickCount64 - _subLiftStart) / (double)_subLiftMs);
+        var eased = 1 - (1 - t) * (1 - t);
+        _subLift = _subLiftFrom + (_subLiftTo - _subLiftFrom) * eased;
+        _player.SetSubtitleClearance(_subLift);
+        if (t >= 1) _subLiftTimer.Stop();
     }
 
     // ---------------------------------------------------------------- Işık efekti (Reveal)
@@ -611,7 +693,7 @@ public partial class MainWindow : Window
     {
         // Alt çubuk düğmeleri: imlecin ~30 px çevresinde %19, ~45 px'te %11, ~72 px'te söner
         var barStops = new[] { (0.0, 0x30), (0.42, 0x30), (0.62, 0x1C), (1.0, 0x00) };
-        foreach (var button in new[] { VolumeButton, BackButton, PlayButton, ForwardButton,
+        foreach (var button in new[] { VolumeButton, TracksButton, BackButton, PlayButton, ForwardButton,
                                         SpeedButton, MiniButton, FullButton, MoreButton })
             AddRevealLight(button, RevealRadius, barStops);
 
@@ -905,9 +987,9 @@ public partial class MainWindow : Window
         var alt = Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
         var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
 
-        if (key == Key.Escape && (VolumePopup.IsOpen || MorePopup.IsOpen || SpeedPopup.IsOpen))
+        if (key == Key.Escape && AllPopups.Any(p => p.IsOpen))
         {
-            VolumePopup.IsOpen = MorePopup.IsOpen = SpeedPopup.IsOpen = false;
+            CloseAllPopups();
             e.Handled = true;
             return;
         }
@@ -940,6 +1022,10 @@ public partial class MainWindow : Window
             case Key.OemComma when shift: StepSpeed(-1); break;
             case Key.OemPeriod or Key.Decimal: FrameStep(+1); break;
             case Key.OemComma: FrameStep(-1); break;
+            // YouTube gibi: C altyazıyı açıp kapatır, 0-9 videonun %0-90'ına atlar
+            case Key.C when !ctrl: ToggleSubtitles(); break;
+            case >= Key.D0 and <= Key.D9 when !ctrl && !alt && !shift: JumpToPercent((key - Key.D0) * 10); break;
+            case >= Key.NumPad0 and <= Key.NumPad9: JumpToPercent((key - Key.NumPad0) * 10); break;
             default: handled = false; break;
         }
         if (handled)
@@ -947,6 +1033,13 @@ public partial class MainWindow : Window
             e.Handled = true;
             if (key is not (Key.Space or Key.K or Key.F4)) ShowControls();
         }
+    }
+
+    void JumpToPercent(int percent)
+    {
+        if (!_player.IsSeekable) return;
+        _player.Time = _player.Length * percent / 100;
+        UpdateTime();
     }
 
     void FrameStep(int dir)
@@ -1032,6 +1125,7 @@ public partial class MainWindow : Window
         var extra = _mini ? Visibility.Collapsed : Visibility.Visible;
         BackButton.Visibility = ForwardButton.Visibility = extra;
         FullButton.Visibility = MoreButton.Visibility = VolumeButton.Visibility = SpeedButton.Visibility = extra;
+        TracksButton.Visibility = extra;
         if (_mini) HideTitle(instant: true);
         EdgeArrows.Visibility = extra;
         MiniButton.Content = _mini ? "\uE73F" : "\uE8A7";
@@ -1087,7 +1181,7 @@ public partial class MainWindow : Window
 
     void ShowMoreMenu(bool atMouse)
     {
-        VolumePopup.IsOpen = false;
+        VolumePopup.IsOpen = TracksPopup.IsOpen = SpeedPopup.IsOpen = false;
         if (atMouse)
         {
             MorePopup.Placement = PlacementMode.MousePoint;
@@ -1107,6 +1201,7 @@ public partial class MainWindow : Window
     void EndAction_Click(object sender, RoutedEventArgs e)
     {
         _settings.EndAction = Enum.Parse<EndAction>((string)((Button)sender).Tag);
+        SaveSettingsSoon();
         UpdateEndActionButtons();
     }
 
@@ -1162,7 +1257,7 @@ public partial class MainWindow : Window
 
     void SpeedButton_Click(object sender, RoutedEventArgs e)
     {
-        VolumePopup.IsOpen = MorePopup.IsOpen = false;
+        VolumePopup.IsOpen = MorePopup.IsOpen = TracksPopup.IsOpen = false;
         if (SpeedPopup.IsOpen) { SpeedPopup.IsOpen = false; return; }
         if (JustClosed(SpeedPopup)) return;
         // Menünün sağ kenarı düğmenin sağ kenarıyla hizalı, düğmenin üstünde
@@ -1176,10 +1271,165 @@ public partial class MainWindow : Window
 
     void VolumeButton_Click(object sender, RoutedEventArgs e)
     {
-        MorePopup.IsOpen = SpeedPopup.IsOpen = false;
+        MorePopup.IsOpen = SpeedPopup.IsOpen = TracksPopup.IsOpen = false;
         if (JustClosed(VolumePopup)) return;
         VolumePopup.IsOpen = !VolumePopup.IsOpen;
     }
+
+    // ---------------------------------------------------------------- Altyazı ve ses menüsü
+
+    void TracksButton_Click(object sender, RoutedEventArgs e)
+    {
+        VolumePopup.IsOpen = MorePopup.IsOpen = SpeedPopup.IsOpen = false;
+        if (TracksPopup.IsOpen) { TracksPopup.IsOpen = false; return; }
+        if (JustClosed(TracksPopup)) return;
+        BuildTracksMenu();
+        // Filmler ve TV gibi düğmenin üstünde ortalı
+        TracksPopup.Placement = PlacementMode.Custom;
+        TracksPopup.CustomPopupPlacementCallback = (popup, target, _) => new[]
+        {
+            new CustomPopupPlacement(new Point((target.Width - popup.Width) / 2, -popup.Height - 6), PopupPrimaryAxis.Horizontal),
+        };
+        TracksPopup.IsOpen = true;
+    }
+
+    /// <summary>
+    /// Filmler ve TV'deki menü: "Altyazılar" (kapalı, izler, dosyadan altyazı, Windows altyazı
+    /// ayarları) ve "Ses" (ses izleri). Seçili olanın yanında onay işareti.
+    /// </summary>
+    void BuildTracksMenu()
+    {
+        TracksPanel.Children.Clear();
+        var tracks = _playlist.Current != null ? _player.Tracks : new();
+        var subs = tracks.Where(t => t.Type == "sub").ToList();
+        var audio = tracks.Where(t => t.Type == "audio").ToList();
+
+        AddMenuHeader(L.Subtitles);
+        AddMenuItem(L.Off, !subs.Any(t => t.Selected), () => SelectSubtitle(null));
+        for (int i = 0; i < subs.Count; i++)
+        {
+            var track = subs[i];
+            AddMenuItem($"{i + 1}. {TrackName(track)}", track.Selected, () => SelectSubtitle(track));
+        }
+        AddMenuItem(L.ChooseSubtitleFile, false, ChooseSubtitleFile).IsEnabled = _playlist.Current != null;
+        AddMenuItem(L.SubtitleSettings, false, () => { TracksPopup.IsOpen = false; SystemMedia.OpenSubtitleSettings(); });
+
+        if (audio.Count == 0) return;
+        AddMenuHeader(L.Audio);
+        for (int i = 0; i < audio.Count; i++)
+        {
+            var track = audio[i];
+            var parts = new[] { TrackName(track), CodecName(track.Codec), track.Channels > 0 ? L.Channels(track.Channels) : null };
+            AddMenuItem($"{i + 1}. {string.Join(" - ", parts.Where(p => !string.IsNullOrEmpty(p)))}", track.Selected,
+                () => SelectAudio(track));
+        }
+    }
+
+    void AddMenuHeader(string text) =>
+        TracksPanel.Children.Add(new TextBlock { Text = text, FontSize = 12, Opacity = 0.6, Margin = new Thickness(12, 8, 12, 4) });
+
+    Button AddMenuItem(string text, bool isChecked, Action click)
+    {
+        // Filmler ve TV'deki bu menüde satırlar 30 px
+        var button = new Button { Style = (Style)FindResource("MenuButton"), Height = 30 };
+        SetCheckItem(button, text, isChecked);
+        button.Click += (_, _) => click();
+        TracksPanel.Children.Add(button);
+        return button;
+    }
+
+    /// <summary>"Türkçe", "Yönetmen yorumu - İngilizce", dosyadan yüklendiyse dosya adı.</summary>
+    static string TrackName(MpvEngine.Track t)
+    {
+        var lang = L.LanguageName(t.Language);
+        var title = string.IsNullOrWhiteSpace(t.Title) ? null : t.Title.Trim();
+        // Dosyadan yüklenen altyazıda mpv başlığa dosya adının videodan sonraki kısmını koyuyor ("English.srt")
+        if (t.External && title != null) title = Path.GetFileNameWithoutExtension(title) is { Length: > 0 } n ? n : null;
+        var parts = new List<string>();
+        // Dosyadan yüklenen altyazının başlığı dosya adı; dili biliniyorsa dil yeterli
+        if (title != null && !(t.External && lang != null) && !string.Equals(title, lang, StringComparison.OrdinalIgnoreCase))
+            parts.Add(title);
+        if (lang != null) parts.Add(lang);
+        if (parts.Count == 0) parts.Add(CodecName(t.Codec) ?? "?");
+        var name = string.Join(" - ", parts);
+        return t.Forced ? $"{name} ({L.Forced})" : name;
+    }
+
+    static string? CodecName(string? codec) => codec switch
+    {
+        null or "" => null,
+        "ac3" => "AC-3",
+        "eac3" => "E-AC-3",
+        "truehd" => "TrueHD",
+        "opus" => "Opus",
+        "vorbis" => "Vorbis",
+        "subrip" => "SRT",
+        "hdmv_pgs_subtitle" => "PGS",
+        "dvd_subtitle" => "VobSub",
+        "webvtt" => "WebVTT",
+        "mov_text" => "Text",
+        _ when codec.StartsWith("pcm_") => "PCM",
+        _ => codec.ToUpperInvariant(),
+    };
+
+    int? _lastSubtitleId;
+
+    void SelectSubtitle(MpvEngine.Track? track)
+    {
+        TracksPopup.IsOpen = false;
+        _player.SelectSubtitle(track?.Id);
+        // Sonraki videolarda da aynı tercih: kapattıysa kapalı, bir dil seçtiyse o dil
+        _player.SubtitlesOff = track == null;
+        if (track?.Language is { } lang) _player.PreferredSubtitleLanguage = L.LanguageCodes(lang);
+        if (track != null) _lastSubtitleId = track.Id;
+    }
+
+    void SelectAudio(MpvEngine.Track track)
+    {
+        TracksPopup.IsOpen = false;
+        _player.SelectAudio(track.Id);
+        if (track.Language is { } lang) _player.PreferredAudioLanguage = L.LanguageCodes(lang);
+    }
+
+    /// <summary>C tuşu: altyazıyı kapatır ya da (en son açık olanı veya ilkini) açar.</summary>
+    void ToggleSubtitles()
+    {
+        if (_playlist.Current == null) return;
+        var subs = _player.Tracks.Where(t => t.Type == "sub").ToList();
+        if (subs.Count == 0) { ShowToast("", L.NoSubtitles); return; }
+        if (subs.FirstOrDefault(t => t.Selected) is { } current)
+        {
+            _lastSubtitleId = current.Id;
+            SelectSubtitle(null);
+            ShowToast("", L.SubtitlesOff);
+            return;
+        }
+        var track = subs.FirstOrDefault(t => t.Id == _lastSubtitleId) ?? subs[0];
+        SelectSubtitle(track);
+        ShowToast("", L.SubtitleOn(TrackName(track)));
+    }
+
+    void ChooseSubtitleFile()
+    {
+        TracksPopup.IsOpen = false;
+        var exts = string.Join(";", FolderPlaylist.SubtitleExtensions.Select(e => "*" + e));
+        var dialog = new OpenFileDialog
+        {
+            Title = L.ChooseSubtitleFile,
+            Filter = $"{L.SubtitleFiles}|{exts}|{L.AllFiles}|*.*",
+        };
+        if (_playlist.Current is { } cur) dialog.InitialDirectory = Path.GetDirectoryName(cur);
+        if (dialog.ShowDialog(this) == true) AddSubtitle(dialog.FileName);
+    }
+
+    void AddSubtitle(string path)
+    {
+        _player.AddSubtitle(path);
+        _player.SubtitlesOff = false;
+        ShowToast("", L.SubtitleOn(Path.GetFileName(path)));
+    }
+
+    void ApplySubtitleStyle() => _player.ApplySubtitleStyle(SystemMedia.ReadSubtitleStyle());
 
     /// <summary>
     /// Menü açıkken düğmesine basınca menü fare basılır basılmaz kendiliğinden kapanıyor,
@@ -1225,7 +1475,17 @@ public partial class MainWindow : Window
         base.OnSourceInitialized(e);
         _hwnd = new WindowInteropHelper(this).Handle;
         HwndSource.FromHwnd(_hwnd).AddHook(WndProc);
+
+        // Medya tuşları ve Windows'un medya penceresi; düğmeler Windows'un iş parçacığından gelir
+        _media = new SystemMedia(_hwnd);
+        _media.Play += () => Dispatcher.BeginInvoke(() => { if (!_player.IsPlaying) TogglePlay(); });
+        _media.Pause += () => Dispatcher.BeginInvoke(() => { if (_player.IsPlaying) TogglePlay(); });
+        _media.NextVideo += () => Dispatcher.BeginInvoke(Next);
+        _media.PreviousVideo += () => Dispatcher.BeginInvoke(Previous);
+        UpdateMediaControls();
     }
+
+    SystemMedia? _media;
 
     /// <summary>
     /// Kenarlıksız pencerede "ekranı kapla" görev çubuğunun üstüne taşmasın;
