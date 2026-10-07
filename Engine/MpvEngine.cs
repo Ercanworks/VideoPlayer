@@ -42,10 +42,21 @@ public sealed class MpvEngine : IDisposable
         SetOption("input-cursor", "no");
         SetOption("cursor-autohide", "no");
         SetOption("hwdec", "auto-safe");
-        // Zamanlama sesin saatine göre (mpv'nin varsayılanı). Ekran senkronlu çizim
-        // (display-resample; ara kare üretme de bunu gerektirir) gömülü pencerede karelerin
-        // %5-9'unu ekrana hiç ulaştırmıyordu, video düşük kare hızındaymış gibi görünüyordu
-        SetOption("video-sync", "audio");
+        // Ekranın yenileme hızına senkron çiz. 144 Hz'de ölçüldü (ekranı saniyede 240 kez
+        // yakalayıp kayan çubuğun konumu izlenerek): kare atlamadan, ses saatine göre zamanlamadan
+        // daha düzgün ritim (60 fps: 3,2 → 2,55 px sapma); 23,976 fps filmler 24'e hafifçe
+        // hızlanıp 144 Hz'e tam oturur. Ara kare üretme de bunu gerektirir.
+        // (1.9.2'deki "kare kaybı" ölçümü hatalıydı: ekranı tam 144 Hz'de örnekleyen yakalama,
+        // her yenilemede çizim yapan bu modda iki güncellemeyi bir örneğe düşürüp kayıp sanıyordu.)
+        SetOption("video-sync", "display-resample");
+        // Görüntü kalitesi (ölçülerek seçildi): mpv'nin yüksek kalite profili (EWA Lanczos ile
+        // büyütme ve renk kanalı ölçekleme, daha az halkalanma, HDR'de ayrıntı geri kazanımı).
+        // HDR video SDR ekranda ITU BT.2390 eğrisi ve tonu koruyan gam eşlemesiyle gösterilir:
+        // varsayılanlar orta tonları ~12 birim açıyor ve doygun renkleri solduruyordu (47 birime
+        // kadar sapma); bunlarla gri tonlar aynen kalıyor, SDR gamı içindeki renkler en çok 18 birim
+        SetOption("profile", "high-quality");
+        SetOption("tone-mapping", "bt.2390");
+        SetOption("gamut-mapping-mode", "relative");
         // Altyazılar: videoyla aynı adla başlayan dosyalar da yüklensin (Film.tr.srt, Film.Turkish.srt)
         // ve yaygın alt klasörlerde de aransın; Windows dilindeki altyazı seçilsin ama ses de o
         // dildeyse (ör. Türkçe filmde Türkçe altyazı) yalnızca "zorunlu" altyazılar açılsın
@@ -77,6 +88,7 @@ public sealed class MpvEngine : IDisposable
         Native.mpv_observe_property(_ctx, 2, U("eof-reached"), Native.FormatFlag);
         Native.mpv_observe_property(_ctx, 3, U("video-params/aspect"), Native.FormatDouble);
         Native.mpv_observe_property(_ctx, 4, U("video-params/rotate"), Native.FormatInt64);
+        Native.mpv_observe_property(_ctx, 5, U("video-params/average-bpp"), Native.FormatInt64);
         _eventThread = new Thread(EventLoop) { IsBackground = true, Name = "mpv olayları" };
         _eventThread.Start();
 
@@ -93,6 +105,7 @@ public sealed class MpvEngine : IDisposable
         _error = false;
         SetProperty("pause", "no");
         SetPan(0);
+        LastSeekTick = Environment.TickCount64;
         ApplyTrackPreferences();
         Command("loadfile", path, "replace");
     }
@@ -184,6 +197,52 @@ public sealed class MpvEngine : IDisposable
         SetProperty("sub-shadow-offset", (s.ShadowOffset ?? 0).ToString("0.##", CultureInfo.InvariantCulture));
     }
 
+    // ---------------------------------------------------------------- Görüntü kalitesi
+
+    volatile bool _eightBit;
+
+    /// <summary>0: yüksek kalite, 1: mpv'nin varsayılan ölçekleyicileri, 2: hızlı (zayıf ekran kartları).</summary>
+    public int QualityLevel { get; private set; }
+
+    /// <summary>
+    /// 8 bitlik videolarda yumuşak renk geçişlerindeki (gökyüzü, karanlık sahneler) basamakları
+    /// giderir. 10 bitlik videolarda bu sorun olmadığından ince ayrıntıya dokunmamak için kapalı.
+    /// </summary>
+    void UpdateDeband() => CommandAsync("set", "deband", _eightBit && QualityLevel == 0 ? "yes" : "no");
+
+    /// <summary>
+    /// Ekran kartı yüksek kalite ayarlarına yetişemiyorsa (kare düşüyorsa) bir kademe hafifletir.
+    /// Daha düşürülecek kademe kalmadıysa false.
+    /// </summary>
+    public bool ReduceQuality()
+    {
+        if (QualityLevel >= 2 || !_initialized) return false;
+        QualityLevel++;
+        if (QualityLevel == 1)
+        {
+            CommandAsync("set", "scale", "lanczos");
+            CommandAsync("set", "cscale", "lanczos");
+            CommandAsync("set", "scale-antiring", "0");
+            CommandAsync("set", "hdr-contrast-recovery", "0");
+            CommandAsync("set", "hdr-peak-percentile", "100");
+        }
+        else
+        {
+            CommandAsync("apply-profile", "fast");
+        }
+        UpdateDeband();
+        return true;
+    }
+
+    /// <summary>
+    /// Ekran kartı veya çözücü yetişemediği için atlanan ya da geciken kareler (dosya başına).
+    /// Ekran senkronlu çizimde yetişemeyen kareler "geciken" olarak sayılıyor.
+    /// </summary>
+    public long DroppedFrames => (long)(GetDouble("frame-drop-count") + GetDouble("vo-delayed-frame-count"));
+
+    /// <summary>Son sarma veya dosya açma anı (Environment.TickCount64); sonrasındaki kısa takılmalar sayılmasın.</summary>
+    public long LastSeekTick { get; private set; }
+
     public void SetPause(bool pause) => SetProperty("pause", pause ? "yes" : "no");
 
     public void Stop()
@@ -206,7 +265,11 @@ public sealed class MpvEngine : IDisposable
     {
         get => (long)(GetDouble("time-pos") * 1000);
         // Tam kareye sar (mpv bunu hızlı yapıyor); arayüzü bekletmemek için eşzamansız
-        set => CommandAsync("seek", (value / 1000.0).ToString("0.000", CultureInfo.InvariantCulture), "absolute+exact");
+        set
+        {
+            LastSeekTick = Environment.TickCount64;
+            CommandAsync("seek", (value / 1000.0).ToString("0.000", CultureInfo.InvariantCulture), "absolute+exact");
+        }
     }
 
     public long Length => (long)(GetDouble("duration") * 1000);
@@ -215,6 +278,21 @@ public sealed class MpvEngine : IDisposable
 
     public int Volume { set => SetProperty("volume", value.ToString(CultureInfo.InvariantCulture)); }
     public bool Mute { set => SetProperty("mute", value ? "yes" : "no"); }
+
+    /// <summary>
+    /// Ara kare üretme: ekran yenilemesi iki video karesinin arasına düştüğünde kareleri
+    /// zamanına göre harmanlar; 60 fps videonun 144 Hz ekrandaki 2-3 yenilemelik düzensiz
+    /// kare süreleri kaybolur (ölçüldü: 2,55 → 2,0 px sapma; 30 fps'te 4,5 → 3,55).
+    /// Ekran senkronlu çizimle çalışır. Oynatırken açılıp kapatılabilir.
+    /// </summary>
+    public bool Interpolation
+    {
+        set
+        {
+            if (_initialized) SetProperty("interpolation", value ? "yes" : "no");
+            else SetOption("interpolation", value ? "yes" : "no");
+        }
+    }
 
     public double Rate
     {
@@ -291,6 +369,15 @@ public sealed class MpvEngine : IDisposable
                     {
                         _rotate = prop.Format == Native.FormatInt64 && prop.Data != IntPtr.Zero
                             ? (int)Marshal.ReadInt64(prop.Data) : 0;
+                        break;
+                    }
+                    if (ev.ReplyUserdata == 5)
+                    {
+                        // 8 bit 4:2:0 videoda piksel başına ortalama 12 bit; 10 bitte 24 (p010)
+                        var bpp = prop.Format == Native.FormatInt64 && prop.Data != IntPtr.Zero
+                            ? Marshal.ReadInt64(prop.Data) : 0;
+                        _eightBit = bpp is > 0 and <= 12;
+                        UpdateDeband();
                         break;
                     }
                     if (prop.Format != Native.FormatFlag || prop.Data == IntPtr.Zero) break;

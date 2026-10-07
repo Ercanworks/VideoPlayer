@@ -66,7 +66,7 @@ public partial class MainWindow : Window
 
         try
         {
-            _player = new MpvEngine();
+            _player = new MpvEngine { Interpolation = _settings.Interpolation };
         }
         catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or EntryPointNotFoundException)
         {
@@ -108,7 +108,7 @@ public partial class MainWindow : Window
         LocationChanged += (_, _) => PositionOverlay();
         Video.SizeChanged += (_, _) => PositionOverlay();
 
-        _tick.Tick += (_, _) => UpdateTime();
+        _tick.Tick += (_, _) => { UpdateTime(); WatchQuality(); };
         _hideTimer.Tick += (_, _) => TryHideControls();
         _titleTimer.Tick += (_, _) => HideTitle();
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); Fade(Toast, 0, 250); };
@@ -168,7 +168,7 @@ public partial class MainWindow : Window
         Overlay.MouseLeave += (_, _) => { if (!_mouseDown) RestartHideTimer(); };
         PreviewKeyDown += OnKeyDown;
         StateChanged += (_, _) => { UpdateWindowButtons(); FitToScreenEdges(); };
-        SizeChanged += (_, _) => FitToScreenEdges();
+        SizeChanged += (_, _) => { FitToScreenEdges(); _lastResizeTick = Environment.TickCount64; };
         Overlay.SizeChanged += (_, _) => UpdateSubtitleLift(0);
         _subLiftTimer.Tick += (_, _) => StepSubtitleLift();
         // Windows'un altyazı ayarları değişmiş olabilir (ör. menüden Ayarlar'a gidip dönünce)
@@ -466,6 +466,34 @@ public partial class MainWindow : Window
         var shown = (long)Seek.Value;
         TimeText.Text = FormatTime(shown);
         LengthText.Text = FormatTime(_showRemaining ? length - shown : length);
+    }
+
+    // Görüntü kalitesi bekçisi: ekran kartı yüksek kalite ayarlarına yetişemeyip kare atlıyorsa
+    // (ör. zayıf dizüstü kartlarında 4K) ayarlar kademeli olarak hafifletilir. Sarma, dosya açma,
+    // pencere boyutlandırma sonrasındaki kısa takılmalar ve hızlı oynatma sayılmaz.
+    readonly Queue<(long Tick, long Drops)> _dropSamples = new();
+    long _lastResizeTick;
+
+    void WatchQuality()
+    {
+        var now = Environment.TickCount64;
+        var steady = _player.IsPlaying && !_seekDrag.IsDragging && _rate <= 1.25
+            && WindowState != WindowState.Minimized
+            && now - _player.LastSeekTick > 3000 && now - _lastResizeTick > 2000;
+        if (!steady) { _dropSamples.Clear(); return; }
+
+        var drops = _player.DroppedFrames;
+        if (_dropSamples.Count > 0 && drops < _dropSamples.Peek().Drops) _dropSamples.Clear();
+        _dropSamples.Enqueue((now, drops));
+        while (now - _dropSamples.Peek().Tick > 5000) _dropSamples.Dequeue();
+        var first = _dropSamples.Peek();
+        // 4-5 saniyede 10'dan fazla atlanan kare: kalıcı bir yetişememe
+        if (now - first.Tick >= 4000 && drops - first.Drops >= 10)
+        {
+            _dropSamples.Clear();
+            if (_player.ReduceQuality())
+                Debug.WriteLine($"Kare atlanıyor; görüntü kalitesi {_player.QualityLevel}. kademeye indirildi");
+        }
     }
 
     void UpdatePlayState()
@@ -1146,6 +1174,19 @@ public partial class MainWindow : Window
         }
         UpdateSpeedButtons();
         UpdateEndActionButtons();
+        UpdateInterpolationButton();
+    }
+
+    void UpdateInterpolationButton() =>
+        SetCheckItem(InterpolationButton, L.Interpolation, _settings.Interpolation);
+
+    void Interpolation_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.Interpolation = !_settings.Interpolation;
+        _player.Interpolation = _settings.Interpolation;
+        _settings.Save();
+        UpdateInterpolationButton();
+        ShowToast("", _settings.Interpolation ? L.InterpolationOn : L.InterpolationOff);
     }
 
     void UpdateSpeedButtons()

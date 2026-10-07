@@ -22,7 +22,13 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 - **Precise seeking:** press anywhere on the seek bar and drag; the video pauses while the
   button is held and shows the exact frame under the cursor. Move the cursor up away from the
   bar for up to 3× finer control
-- Even frame pacing: every video frame reaches the screen (e.g. 60 fps video on a 144 Hz screen)
+- **Picture quality** (measured, see below): high-quality scaling (EWA Lanczos for upscaling and
+  chroma), debanding for 8-bit video, HDR to SDR with the ITU BT.2390 curve and hue-preserving
+  gamut mapping; if the graphics card can't keep up, settings are lightened automatically
+- Rendering synced to the display refresh rate: steadier frame cadence (e.g. 60 fps on 144 Hz),
+  23.976 fps films are retimed to 24 fps to fit 144 Hz exactly
+- Optional frame interpolation ("⋯" menu → Video) for judder-free motion when the video frame
+  rate doesn't divide the refresh rate (e.g. 60 or 30 fps on 144 Hz)
 - **Subtitles and audio tracks:** Movies & TV–style menu next to the volume button to choose
   embedded or external subtitles and audio tracks, or load a subtitle file (or just drop one on
   the window). Subtitle files are found automatically even with a language suffix
@@ -55,6 +61,19 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 | 0 – 9 | Jump to 0 % – 90 % of the video |
 | Ctrl+O | Open file |
 | Mouse side buttons | Previous / next video |
+
+## Measured playback quality
+
+- **Color accuracy:** 16 known RGB patches (BT.709 limited/full range, untagged, 10-bit HEVC)
+  are reproduced within 3 code values (8-bit) and 2 (10-bit); blacks stay at 0.
+- **HDR on an SDR screen:** an HDR10 version of the same patches (white at 203 nits) comes out
+  with gray levels unchanged and colors within 18 code values (mpv's defaults: gray +12, colors
+  up to 47 off).
+- **Motion on 144 Hz** (screen captured at 240 Hz, a moving bar tracked): no skipped frames;
+  deviation from perfectly even motion for 60 fps video 2.55 px (audio-clock timing: 3.2 px,
+  with frame interpolation: 2.0 px).
+- **GPU cost** with the high-quality settings on an RTX 3060 Ti: 0.9–3.6 ms per frame (4K HEVC
+  included).
 
 ## Building
 
