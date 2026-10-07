@@ -42,9 +42,10 @@ public sealed class MpvEngine : IDisposable
         SetOption("input-cursor", "no");
         SetOption("cursor-autohide", "no");
         SetOption("hwdec", "auto-safe");
-        // Ekranın yenileme hızına senkron çiz: video karesi gelmese de her yenilemede yeniden
-        // çizer, böylece tutup çekerken kayma video kare hızıyla değil ekran hızıyla akar
-        SetOption("video-sync", "display-resample");
+        // Zamanlama sesin saatine göre (mpv'nin varsayılanı). Ekran senkronlu çizim
+        // (display-resample; ara kare üretme de bunu gerektirir) gömülü pencerede karelerin
+        // %5-9'unu ekrana hiç ulaştırmıyordu, video düşük kare hızındaymış gibi görünüyordu
+        SetOption("video-sync", "audio");
         // Video bitince dosyayı kapatma, son karede bekle (geri sarılabilsin)
         SetOption("keep-open", "yes");
         SetOption("idle", "yes");
@@ -117,21 +118,6 @@ public sealed class MpvEngine : IDisposable
 
     public int Volume { set => SetProperty("volume", value.ToString(CultureInfo.InvariantCulture)); }
     public bool Mute { set => SetProperty("mute", value ? "yes" : "no"); }
-
-    /// <summary>
-    /// Ara kare üretme: ekran yenilemesi iki video karesinin arasına düştüğünde kareleri
-    /// zamanına göre harmanlar; 60 fps videonun 144 Hz ekrandaki düzensiz kare süreleri kaybolur.
-    /// Ekran senkronlu çizim (display-resample) açıkken çalışır. Oynatırken açılıp kapatılabilir.
-    /// </summary>
-    public bool Interpolation
-    {
-        set
-        {
-            if (_initialized) SetProperty("interpolation", value ? "yes" : "no");
-            else SetOption("interpolation", value ? "yes" : "no");
-        }
-    }
-
 
     public double Rate
     {

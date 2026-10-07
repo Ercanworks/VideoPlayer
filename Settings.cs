@@ -16,7 +16,6 @@ public sealed class Settings
     public int Volume { get; set; } = 80;
     public bool Muted { get; set; }
     public EndAction EndAction { get; set; } = EndAction.Stop;
-    public bool Interpolation { get; set; }
 
     static readonly string Dir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Oynatici");

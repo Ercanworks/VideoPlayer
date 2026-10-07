@@ -221,9 +221,6 @@
                         <Button x:Name="EndNext" Style="{StaticResource MenuButton}" Tag="Next" Click="EndAction_Click" />
                         <Button x:Name="EndRepeat" Style="{StaticResource MenuButton}" Tag="Repeat" Click="EndAction_Click" />
                         <Separator Background="#33FFFFFF" Margin="4,6" />
-                        <TextBlock Text="{x:Static local:L.VideoSection}" FontSize="12" Opacity="0.6" Margin="12,4,12,4" />
-                        <Button x:Name="InterpolationButton" Style="{StaticResource MenuButton}" Click="Interpolation_Click" />
-                        <Separator Background="#33FFFFFF" Margin="4,6" />
                         <Button Style="{StaticResource MenuButton}" Click="MenuOpen_Click">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE8E5;" FontFamily="{StaticResource IconFont}" Width="28" VerticalAlignment="Center" />

@@ -22,9 +22,7 @@ The interface is shown in Turkish on Turkish Windows and in English everywhere e
 - **Precise seeking:** press anywhere on the seek bar and drag; the video pauses while the
   button is held and shows the exact frame under the cursor. Move the cursor up away from the
   bar for up to 3× finer control
-- Rendering synced to the display refresh rate (smooth sliding on 144 Hz screens)
-- Optional frame interpolation ("⋯" menu → Video): blends frames at display refresh boundaries
-  for smoother motion, e.g. 60 fps video on a 144 Hz screen
+- Even frame pacing: every video frame reaches the screen (e.g. 60 fps video on a 144 Hz screen)
 - Full screen, maximize and an always-on-top mini view
 - Playback speed button (0.25× – 2×) next to mini view; when a video ends: stop / play next in folder / repeat
 - Remembers window size, position and volume
