@@ -93,7 +93,6 @@ public partial class MainWindow : Window
         Root.Children.Remove(Overlay);
         _overlayWindow = new Window
         {
-            Title = L.ControlsWindowTitle,
             WindowStyle = WindowStyle.None,
             AllowsTransparency = true,
             Background = Brushes.Transparent,
@@ -1590,10 +1589,17 @@ public partial class MainWindow : Window
     {
         _overlayWindow.Owner = this;
         _overlayWindow.PreviewKeyDown += OnKeyDown;
+        // Ekran paylaşımında (Discord, OBS vb.) ayrı bir pencere olarak listelenmesin: bu listeler
+        // başlıksız araç pencerelerini göstermiyor (pencere zaten görev çubuğunda ve Alt+Tab'da yok)
+        _overlayHwnd = new WindowInteropHelper(_overlayWindow).EnsureHandle();
+        SetWindowLong(_overlayHwnd, GWL_EXSTYLE, GetWindowLong(_overlayHwnd, GWL_EXSTYLE) | WS_EX_TOOLWINDOW);
         _overlayWindow.Show();
-        _overlayHwnd = new WindowInteropHelper(_overlayWindow).Handle;
         PositionOverlay();
     }
+
+    const int GWL_EXSTYLE = -20, WS_EX_TOOLWINDOW = 0x80;
+    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
+    [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr hwnd, int index, int value);
 
     /// <summary>Katman penceresini video alanının tam üstüne yerleştir.</summary>
     void PositionOverlay()

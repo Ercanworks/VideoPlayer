@@ -24,7 +24,6 @@ public static class L
     public static string Maximize => T("Ekranı kapla", "Maximize");
     public static string Restore => T("Önceki boyuta getir", "Restore down");
     public static string Close => T("Kapat", "Close");
-    public static string ControlsWindowTitle => T("Video Player denetimleri", "Video Player controls");
 
     // Kontrol çubuğu
     public static string RemainingOrTotal => T("Kalan süre (tıklayınca toplam süre)", "Remaining time (click for total)");
