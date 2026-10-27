@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <!-- Windows 10 API'leri: medya tuşları / Windows medya denetimi ve Windows altyazı ayarları -->
+    <!-- Windows 10 APIs: media keys / Windows media controls and Windows subtitle settings -->
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
@@ -19,8 +19,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- mpv motoru (github.com/shinchiro/mpv-winbuild-cmake, 20261004) -->
-    <!-- GitHub 100 MB'tan büyük dosya kabul etmediği için depoda yok; tools\libmpv-indir.ps1 indirir -->
+    <!-- mpv engine (github.com/shinchiro/mpv-winbuild-cmake, 20261004) -->
+    <!-- Not in the repo because GitHub doesn't accept files over 100 MB; tools\libmpv-indir.ps1 downloads it -->
     <None Include="lib\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('lib\libmpv-2.dll')" />
   </ItemGroup>
 

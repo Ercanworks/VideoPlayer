@@ -17,7 +17,7 @@ namespace Oynatici;
 
 public partial class MainWindow
 {
-    // ---------------------------------------------------------------- Ekranı kaplama, tam ekran, mini görünüm
+    // ---------------------------------------------------------------- Maximize, fullscreen, mini view
 
     void ToggleMaximize()
     {
@@ -29,17 +29,17 @@ public partial class MainWindow
     {
         if (_mini) ToggleMini();
 
-        // Pencerenin durumunu (normal / ekranı kaplamış) değiştirmeden tek hamlede monitörü
-        // kaplatıp geri getiriyoruz. Durum değiştirmek pencereyi önce küçültüp sonra
-        // büyüttüğü için geçiş takılıyordu.
+        // We cover the monitor and come back in one go without changing the window state
+        // (normal / maximized). Changing the state first shrinks and then enlarges the window,
+        // which made the transition stutter.
         if (!_fullscreen)
         {
             GetWindowRect(_hwnd, out _rectBeforeFullscreen);
             _fullscreen = true;
             var monitor = CurrentMonitor().Monitor;
             MoveWindowTo(monitor);
-            // Başlık stili olan pencereyi Windows görev çubuğunun altında tuttuğu için
-            // tam ekranda stili kaldır (kenarlıksız olduğumuzdan görünüşte fark yok)
+            // Windows keeps a window with a caption style below the taskbar, so
+            // remove the style in fullscreen (no visible difference since we are borderless)
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
             MoveWindowTo(monitor);
@@ -83,7 +83,7 @@ public partial class MainWindow
             Width = _boundsBeforeMini.Width;
             Height = _boundsBeforeMini.Height;
         }
-        // Mini görünümde sadece temel düğmeler kalsın
+        // Keep only the basic buttons in mini view
         var extra = _mini ? Visibility.Collapsed : Visibility.Visible;
         BackButton.Visibility = ForwardButton.Visibility = extra;
         FullButton.Visibility = MoreButton.Visibility = VolumeButton.Visibility = SpeedButton.Visibility = extra;
@@ -128,7 +128,7 @@ public partial class MainWindow
         _hwnd = new WindowInteropHelper(this).Handle;
         HwndSource.FromHwnd(_hwnd).AddHook(WndProc);
 
-        // Medya tuşları ve Windows'un medya penceresi; düğmeler Windows'un iş parçacığından gelir
+        // Media keys and the Windows media flyout; the buttons arrive on a Windows thread
         _media = new SystemMedia(_hwnd);
         _media.Play += () => Dispatcher.BeginInvoke(() => { if (!_player.IsPlaying) TogglePlay(); });
         _media.Pause += () => Dispatcher.BeginInvoke(() => { if (_player.IsPlaying) TogglePlay(); });
@@ -140,8 +140,8 @@ public partial class MainWindow
     SystemMedia? _media;
 
     /// <summary>
-    /// Kenarlıksız pencerede "ekranı kapla" görev çubuğunun üstüne taşmasın;
-    /// tam ekranda ise görev çubuğu dahil tüm monitörü kaplasın.
+    /// In a borderless window, "maximize" must not overlap the taskbar;
+    /// in fullscreen it covers the whole monitor, taskbar included.
     /// </summary>
     IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
@@ -170,8 +170,8 @@ public partial class MainWindow
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
 
     /// <summary>
-    /// Windows ekranı kaplayan pencereyi kenarlık payı kadar ekran dışına taşırır. Kenarlıksız
-    /// pencerede bu, içeriğin kenarlarının kesilmesi demek; taşan kısım kadar içeride boşluk bırak.
+    /// Windows pushes a maximized window off screen by the border width. For a borderless
+    /// window that means the content's edges get cut off; leave padding equal to the overflow.
     /// </summary>
     void FitToScreenEdges()
     {
@@ -194,15 +194,15 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Kontroller, videonun üstündeki ayrı bir saydam pencerede durur.
-    /// Klavye kısayolları o pencere etkinken de çalışsın.
+    /// The controls live in a separate transparent window on top of the video.
+    /// Keyboard shortcuts should work while that window is active too.
     /// </summary>
     void PrepareOverlayWindow()
     {
         _overlayWindow.Owner = this;
         _overlayWindow.PreviewKeyDown += OnKeyDown;
-        // Ekran paylaşımında (Discord, OBS vb.) ayrı bir pencere olarak listelenmesin: bu listeler
-        // başlıksız araç pencerelerini göstermiyor (pencere zaten görev çubuğunda ve Alt+Tab'da yok)
+        // Don't list it as a separate window in screen sharing (Discord, OBS etc.): those lists
+        // don't show captionless tool windows (the window is already absent from the taskbar and Alt+Tab)
         _overlayHwnd = new WindowInteropHelper(_overlayWindow).EnsureHandle();
         SetWindowLong(_overlayHwnd, GWL_EXSTYLE, GetWindowLong(_overlayHwnd, GWL_EXSTYLE) | WS_EX_TOOLWINDOW);
         _overlayWindow.Show();
@@ -213,7 +213,7 @@ public partial class MainWindow
     [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr hwnd, int index, int value);
 
-    /// <summary>Katman penceresini video alanının tam üstüne yerleştir.</summary>
+    /// <summary>Place the overlay window exactly over the video area.</summary>
     void PositionOverlay()
     {
         if (_overlayHwnd == IntPtr.Zero || PresentationSource.FromVisual(Video) == null) return;
@@ -236,9 +236,9 @@ public partial class MainWindow
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
     /// <summary>
-    /// Pencere taşınırken veya boyutlandırılırken kontrol katmanını aynı anda taşı.
-    /// Normalde katman, pencere yerleştikten sonra WPF'in düzen turunda takip ediyor ve
-    /// bir adım geride kalıyor; bu da boyutlandırmayı takıntılı gösteriyordu.
+    /// Move the control overlay at the same time while the window is being moved or resized.
+    /// Normally the overlay follows in WPF's layout pass after the window has settled and
+    /// lags one step behind, which made resizing look jerky.
     /// </summary>
     void SyncOverlay(IntPtr windowPos)
     {
@@ -282,7 +282,7 @@ public partial class MainWindow
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        // Tam ekranda kapatılırsa tam ekrandan önceki boyut kaydedilsin
+        // If closed in fullscreen, save the size from before fullscreen
         if (_fullscreen) ToggleFullscreen();
 
         Rect bounds = _mini ? _boundsBeforeMini
@@ -300,7 +300,7 @@ public partial class MainWindow
 
         _tick.Stop();
         _hideTimer.Stop();
-        // Durdurma bazen arayüzü kilitleyebiliyor; arka planda yap, en fazla 1 sn bekle
+        // Stopping can sometimes freeze the UI; do it in the background and wait at most 1 s
         Task.Run(() => { _player.Stop(); _player.Dispose(); }).Wait(1500);
         base.OnClosing(e);
     }

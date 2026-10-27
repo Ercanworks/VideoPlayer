@@ -17,7 +17,7 @@ namespace Oynatici;
 
 public partial class MainWindow
 {
-    // ---------------------------------------------------------------- Diğer seçenekler menüsü
+    // ---------------------------------------------------------------- More options menu
 
     void BuildMoreMenu()
     {
@@ -84,7 +84,7 @@ public partial class MainWindow
         }
         else
         {
-            // Menünün sağ kenarı düğmenin sağ kenarıyla hizalı, düğmenin üstünde
+            // The menu's right edge lines up with the button's right edge, above the button
             MorePopup.Placement = PlacementMode.Custom;
             MorePopup.CustomPopupPlacementCallback = (popup, target, _) => new[]
             {
@@ -130,7 +130,7 @@ public partial class MainWindow
         }
     }
 
-    // ---------------------------------------------------------------- Düğmeler
+    // ---------------------------------------------------------------- Buttons
 
     void OpenButton_Click(object sender, RoutedEventArgs e) => OpenWithDialog();
     void PlayButton_Click(object sender, RoutedEventArgs e) => TogglePlay();
@@ -156,7 +156,7 @@ public partial class MainWindow
         VolumePopup.IsOpen = MorePopup.IsOpen = TracksPopup.IsOpen = false;
         if (SpeedPopup.IsOpen) { SpeedPopup.IsOpen = false; return; }
         if (JustClosed(SpeedPopup)) return;
-        // Menünün sağ kenarı düğmenin sağ kenarıyla hizalı, düğmenin üstünde
+        // The menu's right edge lines up with the button's right edge, above the button
         SpeedPopup.Placement = PlacementMode.Custom;
         SpeedPopup.CustomPopupPlacementCallback = (popup, target, _) => new[]
         {
@@ -172,7 +172,7 @@ public partial class MainWindow
         VolumePopup.IsOpen = !VolumePopup.IsOpen;
     }
 
-    // ---------------------------------------------------------------- Altyazı ve ses menüsü
+    // ---------------------------------------------------------------- Subtitles and audio menu
 
     void TracksButton_Click(object sender, RoutedEventArgs e)
     {
@@ -180,7 +180,7 @@ public partial class MainWindow
         if (TracksPopup.IsOpen) { TracksPopup.IsOpen = false; return; }
         if (JustClosed(TracksPopup)) return;
         BuildTracksMenu();
-        // Filmler ve TV gibi düğmenin üstünde ortalı
+        // Like Movies & TV, centered above the button
         TracksPopup.Placement = PlacementMode.Custom;
         TracksPopup.CustomPopupPlacementCallback = (popup, target, _) => new[]
         {
@@ -190,8 +190,8 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Filmler ve TV'deki menü: "Altyazılar" (kapalı, izler, dosyadan altyazı, Windows altyazı
-    /// ayarları) ve "Ses" (ses izleri). Seçili olanın yanında onay işareti.
+    /// The menu in Movies & TV: "Subtitles" (off, tracks, subtitle from file, Windows subtitle
+    /// settings) and "Audio" (audio tracks). A check mark next to the selected one.
     /// </summary>
     void BuildTracksMenu()
     {
@@ -226,7 +226,7 @@ public partial class MainWindow
 
     Button AddMenuItem(string text, bool isChecked, Action click)
     {
-        // Filmler ve TV'deki bu menüde satırlar 30 px
+        // Rows in this menu in Movies & TV are 30 px
         var button = new Button { Style = (Style)FindResource("MenuButton"), Height = 30 };
         SetCheckItem(button, text, isChecked);
         button.Click += (_, _) => click();
@@ -234,15 +234,15 @@ public partial class MainWindow
         return button;
     }
 
-    /// <summary>"Türkçe", "Yönetmen yorumu - İngilizce", dosyadan yüklendiyse dosya adı.</summary>
+    /// <summary>"Turkish", "Director's commentary - English", or the file name if loaded from a file.</summary>
     static string TrackName(MpvEngine.Track t)
     {
         var lang = L.LanguageName(t.Language);
         var title = string.IsNullOrWhiteSpace(t.Title) ? null : t.Title.Trim();
-        // Dosyadan yüklenen altyazıda mpv başlığa dosya adının videodan sonraki kısmını koyuyor ("English.srt")
+        // For subtitles loaded from a file, mpv sets the title to the part of the file name after the video name ("English.srt")
         if (t.External && title != null) title = Path.GetFileNameWithoutExtension(title) is { Length: > 0 } n ? n : null;
         var parts = new List<string>();
-        // Dosyadan yüklenen altyazının başlığı dosya adı; dili biliniyorsa dil yeterli
+        // A subtitle loaded from a file is titled with its file name; if the language is known, the language is enough
         if (title != null && !(t.External && lang != null) && !string.Equals(title, lang, StringComparison.OrdinalIgnoreCase))
             parts.Add(title);
         if (lang != null) parts.Add(lang);
@@ -274,7 +274,7 @@ public partial class MainWindow
     {
         TracksPopup.IsOpen = false;
         _player.SelectSubtitle(track?.Id);
-        // Sonraki videolarda da aynı tercih: kapattıysa kapalı, bir dil seçtiyse o dil
+        // The same preference for the next videos too: off if turned off, the chosen language if one was chosen
         _player.SubtitlesOff = track == null;
         if (track?.Language is { } lang) _player.PreferredSubtitleLanguage = L.LanguageCodes(lang);
         if (track != null) _lastSubtitleId = track.Id;
@@ -287,7 +287,7 @@ public partial class MainWindow
         if (track.Language is { } lang) _player.PreferredAudioLanguage = L.LanguageCodes(lang);
     }
 
-    /// <summary>C tuşu: altyazıyı kapatır ya da (en son açık olanı veya ilkini) açar.</summary>
+    /// <summary>C key: turns subtitles off, or on (the last one that was on, or the first).</summary>
     void ToggleSubtitles()
     {
         if (_playlist.Current == null) return;
@@ -328,8 +328,8 @@ public partial class MainWindow
     void ApplySubtitleStyle() => _player.ApplySubtitleStyle(SystemMedia.ReadSubtitleStyle());
 
     /// <summary>
-    /// Menü açıkken düğmesine basınca menü fare basılır basılmaz kendiliğinden kapanıyor,
-    /// ardından gelen tıklama onu yeniden açıyordu. Az önce kapandıysa tekrar açma.
+    /// Clicking the button while the menu is open closes the menu as soon as the mouse is pressed,
+    /// and the click that followed reopened it. Don't reopen if it was just closed.
     /// </summary>
     bool JustClosed(Popup popup) =>
         _lastClosedPopup == popup && Environment.TickCount64 - _popupClosedTick < 400;

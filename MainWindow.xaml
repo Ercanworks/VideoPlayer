@@ -6,23 +6,23 @@
         Background="Black" AllowDrop="True" UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
 
-    <!-- Windows'un başlık çubuğu yok; pencere düğmeleri videonun üstünde, kontrollerle birlikte gizlenir -->
+    <!-- No Windows title bar; the window buttons sit on top of the video and hide together with the controls -->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0,0,0,1"
                       CornerRadius="0" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
     <Grid x:Name="Root" Background="Black">
-        <!-- Motorun görüntüyü çizdiği yerel pencere -->
+        <!-- Native window where the engine draws the picture -->
         <local:VideoHost x:Name="Video" />
 
-        <!-- Kontroller. Video ayrı bir yerel pencere olduğu için WPF öğeleri üstünde görünemez;
-             bu ızgara açılışta videonun üstündeki saydam bir pencereye taşınır.
-             Neredeyse saydam arka plan: videonun üstündeki tıklamaları yakalamak için -->
+        <!-- Controls. Since the video is a separate native window, WPF elements can't appear on top of it;
+             this grid is moved at startup to a transparent window on top of the video.
+             Almost transparent background: to catch clicks on top of the video -->
         <Grid x:Name="Overlay" Background="#01000000" AllowDrop="True"
               TextElement.Foreground="White" TextElement.FontFamily="Segoe UI">
 
-            <!-- Açılış ekranı -->
+            <!-- Start screen -->
             <StackPanel x:Name="Welcome" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="56"
                            HorizontalAlignment="Center" Opacity="0.8" />
@@ -46,7 +46,7 @@
                 </Button>
             </StackPanel>
 
-            <!-- Ortada kısa süre görünen bildirim (ses, ileri sarma vb.) -->
+            <!-- Notification shown briefly in the center (volume, skipping etc.) -->
             <Border x:Name="Toast" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Background="#B3000000" CornerRadius="8" Padding="22,14" Opacity="0" IsHitTestVisible="False">
                 <StackPanel Orientation="Horizontal">
@@ -56,7 +56,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- Üst şerit: pencereyi taşımak için tutulan alan ve pencere düğmeleri -->
+            <!-- Top strip: the area held to move the window, and the window buttons -->
             <Grid x:Name="TopBar" VerticalAlignment="Top" Height="48">
                 <Grid.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -74,8 +74,8 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Klasördeki önceki/sonraki video okları: kenarlarda, dikeyde ortada; kontrollerle
-                 birlikte belirip gizlenir, o yönde video yoksa hiç görünmez (Filmler ve TV gibi) -->
+            <!-- Previous/next video arrows for the folder: at the edges, vertically centered; they appear and hide
+                 with the controls, and are not shown at all if there is no video in that direction (like Movies & TV) -->
             <Grid x:Name="EdgeArrows">
                 <Button x:Name="PrevButton" Style="{StaticResource EdgeButton}" Content="&#xE76B;"
                         HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -85,9 +85,9 @@
                         ToolTip="{x:Static local:L.NextVideoTip}" Click="NextButton_Click" />
             </Grid>
 
-            <!-- Duraklatılmışken fare oynayınca görünen video adı ve onunla gelen koyu gölge.
-                 Ölçüler Filmler ve TV'den: gölge alttan 320 px, alttaki 150 px'te %60 siyah;
-                 yazı alttan 157 px'te biter (tam ekranda 173), 34 punto ince yazı -->
+            <!-- The video title shown when the mouse moves while paused, and the dark shade that comes with it.
+                 Sizes from Movies & TV: the shade is 320 px from the bottom, 60% black in the bottom 150 px;
+                 the text ends 157 px from the bottom (173 in fullscreen), 34 pt light font -->
             <Rectangle x:Name="TitleShade" VerticalAlignment="Bottom" Height="320" Opacity="0" IsHitTestVisible="False">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -101,11 +101,11 @@
                        Margin="23,0,24,147" FontSize="34" FontFamily="Segoe UI Semilight" TextOptions.TextFormattingMode="Ideal"
                        TextTrimming="CharacterEllipsis" Opacity="0" IsHitTestVisible="False" />
 
-            <!-- Alt kontrol çubuğu -->
+            <!-- Bottom control bar -->
             <Grid x:Name="Controls" VerticalAlignment="Bottom">
 
-                <!-- Kontrollerin arkasındaki gölge (Filmler ve TV'den ölçüldü): alttan 200 px
-                     yukarıda başlar, alttaki 60 px'te %55 siyah -->
+                <!-- Shade behind the controls (measured from Movies & TV): starts 200 px
+                     from the bottom, 55% black in the bottom 60 px -->
                 <Rectangle x:Name="ControlsShade" VerticalAlignment="Bottom" Height="200"
                            IsHitTestVisible="False">
                     <Rectangle.Fill>
@@ -123,7 +123,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- İlerleme çubuğu (tam genişlik) ve altında süreler, Filmler ve TV gibi -->
+                <!-- Seek bar (full width) with the times below it, like Movies & TV -->
                 <Grid Grid.Row="0" Margin="24,0" Background="Transparent">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -132,7 +132,7 @@
                     <Grid>
                         <Slider x:Name="Seek" Style="{StaticResource FlatSlider}" Minimum="0" Maximum="1"
                                 IsEnabled="False" />
-                        <!-- Sürüklerken gösterilen zaman -->
+                        <!-- Time shown while dragging -->
                         <Canvas IsHitTestVisible="False" ClipToBounds="False">
                             <Border x:Name="SeekTip" Background="{StaticResource FlyoutBrush}" CornerRadius="4"
                                     Padding="8,3" Canvas.Top="-30" Visibility="Collapsed">
@@ -140,7 +140,7 @@
                             </Border>
                         </Canvas>
                     </Grid>
-                    <!-- Tam sayı yükseklik: çubuk piksel sınırına otursun (yazının kendi yüksekliği 15,96 px) -->
+                    <!-- Whole-number height: the bar sits on a pixel boundary (the text's own height is 15.96 px) -->
                     <Grid Grid.Row="1" Height="16">
                         <TextBlock x:Name="TimeText" Text="00:00:00" FontSize="12" HorizontalAlignment="Left" />
                         <TextBlock x:Name="LengthText" Text="00:00:00" FontSize="12" HorizontalAlignment="Right" Margin="0,0,1,0"
@@ -149,7 +149,7 @@
                     </Grid>
                 </Grid>
 
-                <!-- Düğmeler (Filmler ve TV'den ölçüldü): ilk kutu soldan, son kutu sağdan 25 px -->
+                <!-- Buttons (measured from Movies & TV): the first box 25 px from the left, the last 25 px from the right -->
                 <Grid x:Name="ButtonRow" Grid.Row="1" Margin="24,2,24,16" Background="Transparent">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -160,7 +160,7 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="VolumeButton" Style="{StaticResource RevealButton}" Content="&#xE995;"
                                 ToolTip="{x:Static local:L.VolumeTip}" Click="VolumeButton_Click" />
-                        <!-- Altyazı ve ses izleri (Filmler ve TV'deki gibi sesin hemen sağında, her zaman görünür) -->
+                        <!-- Subtitle and audio tracks (as in Movies & TV, right next to volume, always visible) -->
                         <Button x:Name="TracksButton" Style="{StaticResource RevealButton}" Content="&#xED1E;"
                                 ToolTip="{x:Static local:L.SubtitlesTip}" Click="TracksButton_Click" />
                     </StackPanel>
@@ -175,7 +175,7 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <!-- Oynatma hızı: üzerinde o anki hız yazar, tıklayınca liste açılır -->
+                        <!-- Playback speed: shows the current speed, opens a list when clicked -->
                         <Button x:Name="SpeedButton" Style="{StaticResource RevealButton}" Content="1x"
                                 FontFamily="Segoe UI" FontSize="13"
                                 ToolTip="{x:Static local:L.SpeedTip}" Click="SpeedButton_Click" />
@@ -190,7 +190,7 @@
                 </Grid>
             </Grid>
 
-            <!-- Ses menüsü -->
+            <!-- Volume menu -->
             <Popup x:Name="VolumePopup" Placement="Top" VerticalOffset="-6" StaysOpen="False"
                    AllowsTransparency="True" PopupAnimation="Fade">
                 <Border Style="{StaticResource FlyoutBorder}" Padding="6,4,14,4">
@@ -205,7 +205,7 @@
                 </Border>
             </Popup>
 
-            <!-- Oynatma hızı menüsü -->
+            <!-- Playback speed menu -->
             <Popup x:Name="SpeedPopup" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                 <Border Style="{StaticResource FlyoutBorder}" TextElement.Foreground="White">
                     <StackPanel MinWidth="160">
@@ -215,14 +215,14 @@
                 </Border>
             </Popup>
 
-            <!-- Altyazı ve ses menüsü: düğmenin üstünde ortalı, içeriği açılırken doldurulur -->
+            <!-- Subtitles and audio menu: centered above the button, its content is filled when it opens -->
             <Popup x:Name="TracksPopup" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                 <Border Style="{StaticResource FlyoutBorder}" TextElement.Foreground="White">
                     <StackPanel x:Name="TracksPanel" MinWidth="220" />
                 </Border>
             </Popup>
 
-            <!-- Diğer seçenekler menüsü -->
+            <!-- More options menu -->
             <Popup x:Name="MorePopup" Placement="Top" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                 <Border Style="{StaticResource FlyoutBorder}" TextElement.Foreground="White">
                     <StackPanel MinWidth="250">

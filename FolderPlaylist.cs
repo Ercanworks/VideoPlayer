@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace Oynatici;
 
-/// <summary>Açılan videonun klasöründeki diğer videolar, Dosya Gezgini sırasıyla.</summary>
+/// <summary>The other videos in the opened video's folder, in File Explorer order.</summary>
 public sealed class FolderPlaylist
 {
     public static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -36,7 +36,7 @@ public sealed class FolderPlaylist
     public static bool IsVideo(string path) => VideoExtensions.Contains(Path.GetExtension(path));
     public static bool IsSubtitle(string path) => SubtitleExtensions.Contains(Path.GetExtension(path));
 
-    /// <summary>Klasördeki ilk video (Dosya Gezgini sırasıyla); yoksa null.</summary>
+    /// <summary>The first video in the folder (File Explorer order); null if there is none.</summary>
     public static string? FirstVideoIn(string dir)
     {
         try

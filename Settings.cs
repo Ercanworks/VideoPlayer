@@ -5,7 +5,7 @@ namespace Oynatici;
 
 public enum EndAction { Stop, Next, Repeat }
 
-/// <summary>%APPDATA%\Oynatici\settings.json içinde saklanan kullanıcı ayarları.</summary>
+/// <summary>User settings stored in %APPDATA%\Oynatici\settings.json.</summary>
 public sealed class Settings
 {
     public double Left { get; set; } = double.NaN;

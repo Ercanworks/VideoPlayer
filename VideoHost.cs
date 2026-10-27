@@ -5,20 +5,20 @@ using System.Windows.Interop;
 namespace Oynatici;
 
 /// <summary>
-/// mpv'nin görüntüyü çizdiği siyah arka planlı yerel pencere (mpv'ye tanıtıcısı verilir).
+/// Native window with a black background where mpv draws the picture (its handle is given to mpv).
 /// </summary>
 public sealed class VideoHost : HwndHost
 {
     const string ClassName = "OynaticiVideo";
     const int WS_CHILD = 0x40000000, WS_VISIBLE = 0x10000000, WS_CLIPCHILDREN = 0x02000000, WS_CLIPSIBLINGS = 0x04000000;
 
-    // Pencere sınıfının WndProc'u çöp toplayıcıya gitmesin diye statik
+    // Static so the window class's WndProc is not garbage collected
     static readonly WndProcDelegate DefProc = DefWindowProc;
     static bool _registered;
 
     public IntPtr VideoHandle { get; private set; }
 
-    /// <summary>Pencere oluşunca (motor buna bağlanabilir) bir kez çağrılır.</summary>
+    /// <summary>Called once when the window is created (the engine can attach to it).</summary>
     public event Action<IntPtr>? HandleCreated;
 
     protected override HandleRef BuildWindowCore(HandleRef parent)

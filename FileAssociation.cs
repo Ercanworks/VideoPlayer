@@ -5,13 +5,13 @@ using Microsoft.Win32;
 namespace Oynatici;
 
 /// <summary>
-/// Video Player'ı Windows'a video oynatıcısı olarak tanıtır (sadece bu kullanıcı için).
-/// Windows 10 varsayılanı programın değiştirmesine izin vermez; kayıttan sonra
-/// Varsayılan uygulamalar ayarı açılır ve seçimi kullanıcı yapar.
+/// Registers Video Player with Windows as a video player (for the current user only).
+/// Windows 10 does not let a program change the default itself; after registering,
+/// the Default apps settings page opens and the user makes the choice.
 /// </summary>
 public static class FileAssociation
 {
-    // Kimlikler eski adla kalıyor: kullanıcının varsayılan oynatıcı seçimi bu ProgId'ye bağlı
+    // The IDs keep the old name: the user's default player choice is tied to this ProgId
     const string ProgId = "Oynatici.Video";
     const string AppName = "Video Player";
     const string OldAppName = "Oynatıcı";
@@ -42,14 +42,14 @@ public static class FileAssociation
             foreach (var ext in FolderPlaylist.VideoExtensions) types.SetValue(ext, "");
         }
 
-        // "Birlikte aç" listesinde görünsün
+        // Show up in the "Open with" list
         foreach (var ext in FolderPlaylist.VideoExtensions)
         {
             using var openWith = classes.CreateSubKey(ext + @"\OpenWithProgids");
             openWith.SetValue(ProgId, Array.Empty<byte>(), RegistryValueKind.None);
         }
 
-        // Ayarlar > Varsayılan uygulamalar listesinde görünsün
+        // Show up in Settings > Default apps
         using (var caps = Registry.CurrentUser.CreateSubKey(CapabilitiesKey))
         {
             caps.SetValue("ApplicationName", AppName);
@@ -69,16 +69,16 @@ public static class FileAssociation
     }
 
     /// <summary>
-    /// Daha önce kayıt yapıldıysa ama kayıtlı exe artık yoksa (taşındı veya adı değişti) kaydı
-    /// bu exe'ye güncelle; kullanıcının varsayılan oynatıcı seçimi bozulmadan çalışmaya devam eder.
-    /// Kayıtlı exe hâlâ duruyorsa dokunma, yoksa başka bir kopya açıldığında kaydı kendine çekerdi.
+    /// If it was registered before but the registered exe no longer exists (moved or renamed), point
+    /// the registration at this exe; the user's default player choice keeps working unchanged.
+    /// If the registered exe still exists, leave it alone, otherwise any other copy would take over the registration.
     /// </summary>
     public static void RepairIfMoved()
     {
         try
         {
             using var cmd = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{ProgId}\shell\open\command");
-            if (cmd?.GetValue("") is not string current) return; // hiç kayıt yapılmamış
+            if (cmd?.GetValue("") is not string current) return; // never registered
             var parts = current.Split('"', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length > 0 && !System.IO.File.Exists(parts[0])) Register();
         }

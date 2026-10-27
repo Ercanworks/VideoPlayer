@@ -3,9 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
-        <!-- Vurgu rengi açılışta Windows'un kendi vurgu renginden alınır -->
+        <!-- The accent color is taken from Windows' own accent color at startup -->
         <SolidColorBrush x:Key="AccentBrush" Color="#0078D4" />
-        <!-- Vurgu renginin açık tonu (Windows paletinde "açık 1"); Filmler ve TV koyu temada çubuklarda bunu kullanıyor -->
+        <!-- Light shade of the accent color ("light 1" in the Windows palette); Movies & TV uses it for the bars in dark theme -->
         <SolidColorBrush x:Key="AccentLightBrush" Color="#429CE3" />
         <SolidColorBrush x:Key="TrackBrush" Color="#29FFFFFF" />
         <SolidColorBrush x:Key="HoverBrush" Color="#26FFFFFF" />
@@ -13,7 +13,7 @@
         <SolidColorBrush x:Key="FlyoutBrush" Color="#F22B2B2B" />
         <FontFamily x:Key="IconFont">Segoe MDL2 Assets</FontFamily>
 
-        <!-- Kontrol çubuğundaki yuvarlak köşeli ikon düğmeleri -->
+        <!-- Rounded icon buttons on the control bar -->
         <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
@@ -44,7 +44,7 @@
             </Setter>
         </Style>
 
-        <!-- Sağ üstteki pencere düğmeleri (küçült, ekranı kapla, kapat) -->
+        <!-- Window buttons in the top right (minimize, maximize, close) -->
         <Style x:Key="CaptionButton" TargetType="Button">
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
@@ -72,10 +72,10 @@
             </Setter>
         </Style>
 
-        <!-- Alt çubuktaki kare düğmeler (Filmler ve TV gibi). Çerçevenin rengi koddan, imleci
-             takip eden ışıkla (RadialGradientBrush) veriliyor: fare yaklaştıkça yakın kenarlar parlar -->
+        <!-- Square buttons on the bottom bar (like Movies & TV). The border color is set from code, by a light
+             that follows the cursor (RadialGradientBrush): edges glow as the mouse gets closer -->
         <Style x:Key="RevealButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
-            <!-- Filmler ve TV: bütün simgeler 20 punto, kutular 48x48, aralarında 2 px -->
+            <!-- Movies & TV: all icons 20 pt, boxes 48x48, 2 px apart -->
             <Setter Property="FontSize" Value="20" />
             <Setter Property="Width" Value="48" />
             <Setter Property="Height" Value="48" />
@@ -86,7 +86,7 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bg" Background="Transparent" BorderThickness="1"
                                 BorderBrush="{TemplateBinding BorderBrush}">
-                            <!-- Filmler ve TV'de simgeler kutu ortasının 1 px altında -->
+                            <!-- In Movies & TV the icons sit 1 px below the box center -->
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -102,19 +102,19 @@
             </Setter>
         </Style>
 
-        <!-- Oynat/duraklat: diğerleriyle aynı kare, simgesi biraz büyük -->
+        <!-- Play/pause: the same square as the others, slightly larger icon -->
         <Style x:Key="PlayButton" TargetType="Button" BasedOn="{StaticResource RevealButton}">
             <Setter Property="FontSize" Value="20" />
         </Style>
 
-        <!-- Kenardaki önceki/sonraki video okları (Filmler ve TV'den ölçüldü): 30x100 kutu,
-             %80 beyaz ok, sağ altında 1 px gölge; çerçeve imleci izleyen ışıkla belirir,
-             basılıyken içi %18 beyaz -->
+        <!-- Previous/next video arrows at the edges (measured from Movies & TV): 30x100 box,
+             80% white arrow, 1 px shadow at the bottom right; the border appears with the light following the cursor,
+             18% white fill while pressed -->
         <Style x:Key="EdgeButton" TargetType="Button">
             <Setter Property="Foreground" Value="#B0FFFFFF" />
             <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
             <Setter Property="FontSize" Value="24" />
-            <!-- Filmler ve TV'de kutu ortanın 1 px altında -->
+            <!-- In Movies & TV the box is 1 px below center -->
             <Setter Property="Margin" Value="0,2,0,0" />
             <Setter Property="Width" Value="30" />
             <Setter Property="Height" Value="100" />
@@ -142,7 +142,7 @@
             </Setter>
         </Style>
 
-        <!-- Açılır menülerdeki satırlar -->
+        <!-- Rows in popup menus -->
         <Style x:Key="MenuButton" TargetType="Button">
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontSize" Value="14" />
@@ -178,9 +178,9 @@
             <Setter Property="Padding" Value="4" />
         </Style>
 
-        <!-- İlerleme ve ses çubukları: ince iz, üstüne gelince büyüyen tutamak -->
-        <!-- Çubuklar Filmler ve TV'den ölçüldü: geçen kısım 4 px açık vurgu rengi, kalan kısım 2 px
-             yarı saydam gri, tutamak 20 px içi boş halka (üstüne gelince büyümüyor) -->
+        <!-- Seek and volume bars: thin track, thumb that grows on hover -->
+        <!-- Bars measured from Movies & TV: the elapsed part is 4 px light accent color, the rest 2 px
+             translucent gray, the thumb a 20 px hollow ring (does not grow on hover) -->
         <Style x:Key="FlatRepeat" TargetType="RepeatButton">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="IsTabStop" Value="False" />
@@ -219,14 +219,14 @@
                                     <Thumb>
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="Thumb">
-                                                <!-- Kaplama boyutu sabit 20 px; basılıyken daire 22 px'e büyüyüp taşar,
-                                                     çubuğun yerleşimi kaymaz -->
+                                                <!-- The overlay size is fixed at 20 px; while pressed the circle grows to 22 px and overflows,
+                                                     so the bar's layout doesn't shift -->
                                                 <Grid Width="20" Height="20" Background="Transparent">
                                                     <Ellipse x:Name="Ring" Width="20" Height="20"
                                                              Stroke="{DynamicResource AccentLightBrush}" StrokeThickness="2" />
                                                 </Grid>
                                                 <ControlTemplate.Triggers>
-                                                    <!-- Basılı tutarken (sürüklerken de) içi dolu, Filmler ve TV gibi -->
+                                                    <!-- Filled while pressed (and while dragging), like Movies & TV -->
                                                     <DataTrigger Binding="{Binding IsMouseCaptured, RelativeSource={RelativeSource AncestorType=Slider}}" Value="True">
                                                         <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource AccentLightBrush}" />
                                                         <Setter TargetName="Ring" Property="Width" Value="22" />

@@ -5,29 +5,29 @@ using System.Windows.Input;
 namespace Oynatici;
 
 /// <summary>
-/// Çubuğun herhangi bir yerine basıp basılı tutarak kaydırmayı sağlar.
-/// WPF'in kendi Slider'ı tıklanan yere atlar ama sürüklemek için ayrıca
-/// tutamağı tutmak gerekir; burada basma, kaydırma ve bırakma tek harekettir.
+/// Lets you press anywhere on the bar and hold to slide.
+/// WPF's own Slider jumps to the clicked spot, but dragging requires grabbing
+/// the thumb separately; here press, slide and release are one motion.
 /// </summary>
 public sealed class SliderDrag
 {
-    // Tutamak genişliğinin yarısı: iz kenarlardan bu kadar içeride başlar
+    // Half the thumb width: the track starts this far in from the edges
     const double ThumbHalf = 10;
-    // Hassas modda "ters piramit": imleç çubuğun üstündeyken (DeadZone içinde) değer fareyi
-    // birebir izler; yukarı kaldırdıkça her Step pikselde aynı yatay hareket daha küçük bir
-    // aralığa denk gelir. MinGain en ince ayar sınırı (1/3: en fazla 3 kat ince).
+    // "Inverted pyramid" in precise mode: while the cursor is on the bar (inside DeadZone) the value follows
+    // the mouse one-to-one; moving up, every Step pixels the same horizontal motion maps to a smaller
+    // range. MinGain is the finest limit (1/3: at most 3 times finer).
     const double DeadZone = 16, Step = 50, MinGain = 1.0 / 3;
 
     readonly Slider _slider;
     double _lastX;
     Point _downPos;
 
-    /// <summary>Açıksa imleç çubuktan yukarı kaldırıldıkça değer daha yavaş değişir (ince ayar).</summary>
+    /// <summary>When on, the value changes more slowly as the cursor is lifted above the bar (fine adjustment).</summary>
     public bool Precise { get; set; }
 
     public bool IsDragging { get; private set; }
 
-    /// <summary>Basıldıktan sonra fare gerçekten yer değiştirdi mi (WPF hareketsiz de olay gönderiyor).</summary>
+    /// <summary>Whether the mouse actually moved after pressing (WPF also sends events without motion).</summary>
     public bool HasMoved { get; private set; }
     public event Action? Started;
     public event Action<double>? Moved;
@@ -65,7 +65,7 @@ public sealed class SliderDrag
         _lastX = x;
         _downPos = e.GetPosition(_slider);
         HasMoved = false;
-        // Tutamağın üstüne basıldıysa atlama; olduğu yerden ince ayar yapılabilsin
+        // If pressed on the thumb, don't jump; allow fine adjustment from where it is
         if (!(Precise && Math.Abs(x - ThumbX) <= ThumbHalf)) SetValue(ValueAt(x));
         else Moved?.Invoke(_slider.Value);
         e.Handled = true;
@@ -88,7 +88,7 @@ public sealed class SliderDrag
         var gain = Math.Max(MinGain, 1 / (1 + above / Step));
         if (dx == 0) { Moved?.Invoke(_slider.Value); return; }
 
-        // Fare çubuğun dışına çıkıp geri dönerken değer uç noktada beklesin
+        // When the mouse leaves the bar and comes back, the value waits at the end point
         var value = _slider.Value + dx * gain * Range / TrackWidth;
         if (x < ThumbHalf && dx > 0 || x > ThumbHalf + TrackWidth && dx < 0) return;
         SetValue(Math.Clamp(value, _slider.Minimum, _slider.Maximum));

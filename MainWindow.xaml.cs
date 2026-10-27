@@ -17,7 +17,7 @@ namespace Oynatici;
 
 public partial class MainWindow : Window
 {
-    // Segoe MDL2 Assets ikonları
+    // Segoe MDL2 Assets icons
     const string IconPlay = "\uE768", IconPause = "\uE769", IconMute = "\uE74F";
     const string IconFull = "\uE740", IconExitFull = "\uE73F", IconCheck = "\uE73E";
     const string IconBack = "\uED3C", IconForward = "\uED3D", IconPrev = "\uE892", IconNext = "\uE893";
@@ -25,7 +25,7 @@ public partial class MainWindow : Window
 
     const int BackSeconds = 10, ForwardSeconds = 30;
     const double ResizeEdge = 6;
-    // YouTube'daki hız adımları
+    // YouTube's speed steps
     static readonly double[] Speeds = { 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2 };
 
     readonly Settings _settings = Settings.Load();
@@ -38,7 +38,7 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _hideTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromMilliseconds(900) };
 
-    // Filmler ve TV gibi sağda varsayılan olarak kalan süre
+    // Like Movies & TV, the right side shows the remaining time by default
     bool _showRemaining = true, _controlsVisible = true;
     bool _fullscreen, _mini;
     RECT _rectBeforeFullscreen;
@@ -53,7 +53,7 @@ public partial class MainWindow : Window
     Point _lastMouse;
     IntPtr _hwnd;
 
-    // Videonun üstünde tutup sürükleme ve çift tık
+    // Press-and-drag and double click on the video
     bool _mouseDown, _swiping;
     Point _downPoint, _lastClickPos;
     long _lastClickTick, _popupClosedTick;
@@ -76,20 +76,20 @@ public partial class MainWindow : Window
         }
         Video.HandleCreated += hwnd => _player.Attach(hwnd);
 
-        // Motor olayları kendi iş parçacığından gelir; oynatıcıya buradan dokunmak
-        // kilitlenmeye yol açabilir, o yüzden hep arayüz iş parçacığına aktar
+        // Engine events come from its own thread; touching the player from there
+        // can cause deadlocks, so always marshal to the UI thread
         _player.Playing += () => Dispatcher.BeginInvoke(OnPlaying);
         _player.Paused += () => Dispatcher.BeginInvoke(UpdatePlayState);
         _player.Stopped += () => Dispatcher.BeginInvoke(UpdatePlayState);
         _player.EndReached += () => Dispatcher.BeginInvoke(OnEnded);
         _player.Error += () => Dispatcher.BeginInvoke(() =>
         {
-            // Başka bir video açılana kadar ekranda kalsın
+            // Stay on screen until another video is opened
             ShowToast("\uE783", L.CannotPlay, sticky: true);
             UpdatePlayState();
         });
 
-        // Kontrolleri videonun üstündeki saydam pencereye taşı
+        // Move the controls to the transparent window on top of the video
         Root.Children.Remove(Overlay);
         _overlayWindow = new Window
         {
@@ -112,15 +112,15 @@ public partial class MainWindow : Window
         _titleTimer.Tick += (_, _) => HideTitle();
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); Fade(Toast, 0, 250); };
 
-        // Kontroller videonun üstündeki ayrı pencereye taşındığı için XAML'daki
-        // ElementName bağlamaları çalışmıyor; hedefleri burada ver
+        // Since the controls are moved to a separate window on top of the video, ElementName
+        // bindings in XAML don't work; set the targets here
         VolumePopup.PlacementTarget = VolumeButton;
         SpeedPopup.PlacementTarget = SpeedButton;
         MorePopup.PlacementTarget = MoreButton;
         TracksPopup.PlacementTarget = TracksButton;
-        // Menüyü kapatmak için yapılan tık başka bir şeyi tetiklemesin
+        // A click made to close a menu must not trigger anything else
         foreach (var popup in AllPopups)
-            // Closed olayı kapanma animasyonu bitince geliyor; kapanma anını hemen yakala
+            // The Closed event fires after the closing animation; catch the moment of closing right away
             System.ComponentModel.DependencyPropertyDescriptor.FromProperty(Popup.IsOpenProperty, typeof(Popup))
                 .AddValueChanged(popup, (_, _) =>
                 {
@@ -140,10 +140,10 @@ public partial class MainWindow : Window
         _scrubTimer.Tick += (_, _) => { if (_seekDrag.IsDragging) ScrubTo(_scrubTarget); else _scrubTimer.Stop(); };
         _seekDrag.Moved += OnSeekDragMoved;
         _seekDrag.Completed += OnSeekDragCompleted;
-        // Zaman balonu Filmler ve TV gibi sadece sürüklerken görünür
+        // Like Movies & TV, the time bubble only shows while dragging
 
         _volumeDrag = new SliderDrag(VolumeSlider);
-        // Sürükleme fareyi popup'tan aldı; geri ver ki dışarı tıklayınca popup kapansın
+        // Dragging took the mouse from the popup; give it back so clicking outside closes the popup
         _volumeDrag.Completed += _ =>
         {
             if (VolumePopup.IsOpen) Mouse.Capture(VolumePopup.Child, CaptureMode.SubTree);
@@ -170,13 +170,13 @@ public partial class MainWindow : Window
         SizeChanged += (_, _) => { FitToScreenEdges(); _lastResizeTick = Environment.TickCount64; };
         Overlay.SizeChanged += (_, _) => UpdateSubtitleLift(0);
         _subLiftTimer.Tick += (_, _) => StepSubtitleLift();
-        // Windows'un altyazı ayarları değişmiş olabilir (ör. menüden Ayarlar'a gidip dönünce)
+        // Windows' subtitle settings may have changed (e.g. after going to Settings from the menu and back)
         Activated += (_, _) => ApplySubtitleStyle();
 
         _tick.Start();
     }
 
-    // ---------------------------------------------------------------- Dosya açma
+    // ---------------------------------------------------------------- Opening files
 
     public void OpenFile(string path)
     {
@@ -236,7 +236,7 @@ public partial class MainWindow : Window
         if (e.Data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } files)
         {
             var path = files[0];
-            // Klasör bırakılırsa içindeki ilk video; altyazı dosyası bırakılırsa açık videoya eklenir
+            // If a folder is dropped, its first video; if a subtitle file is dropped, it is added to the open video
             if (Directory.Exists(path)) path = FolderPlaylist.FirstVideoIn(path) ?? "";
             if (FolderPlaylist.IsSubtitle(path))
             {

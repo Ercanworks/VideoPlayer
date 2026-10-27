@@ -6,15 +6,15 @@ using Oynatici.Engine;
 namespace Oynatici;
 
 /// <summary>
-/// Windows'un medya denetimi (Filmler ve TV gibi): klavyedeki ve kulaklıktaki medya tuşları
-/// pencere seçili değilken de çalışır, ses düğmelerine basınca çıkan Windows medya
-/// penceresinde video adı ve oynat/duraklat görünür.
+/// Windows media controls (like Movies & TV): media keys on the keyboard and headphones
+/// work even when the window is not focused, and the Windows media flyout shown when pressing
+/// the volume keys shows the video title and play/pause.
 /// </summary>
 public sealed class SystemMedia
 {
     readonly SystemMediaTransportControls? _smtc;
 
-    /// <summary>Tuşlar Windows'un iş parçacığından gelir; dinleyen arayüze aktarmalı.</summary>
+    /// <summary>Keys arrive on a Windows thread; the listener must marshal to the UI.</summary>
     public event Action? Play, Pause, NextVideo, PreviousVideo;
 
     public SystemMedia(IntPtr hwnd)
@@ -39,13 +39,13 @@ public sealed class SystemMedia
         }
         catch (Exception ex)
         {
-            // Medya denetimi olmadan da oynatıcı çalışır (tuşlar pencere seçiliyken çalışmaya devam eder)
+            // The player works without media controls too (keys keep working while the window is focused)
             Debug.WriteLine(ex);
             _smtc = null;
         }
     }
 
-    /// <summary>Oynatma durumunu ve video adını Windows'a bildirir; title null ise kapalı.</summary>
+    /// <summary>Tells Windows the playback state and the video title; off if title is null.</summary>
     public void Update(string? title, bool playing, bool hasPrevious, bool hasNext)
     {
         if (_smtc == null) return;
@@ -75,11 +75,11 @@ public sealed class SystemMedia
 
     string? _title;
 
-    // ---------------------------------------------------------------- Windows altyazı ayarları
+    // ---------------------------------------------------------------- Windows subtitle settings
 
     /// <summary>
-    /// Ayarlar > Erişim Kolaylığı > Altyazılar'daki seçimler (Filmler ve TV de bunları kullanıyor).
-    /// "Varsayılan" bırakılanlar mpv'nin kendi görünümünde kalır.
+    /// The choices in Settings > Accessibility > Captions (Movies & TV uses them too).
+    /// Ones left at "Default" keep mpv's own look.
     /// </summary>
     public static MpvEngine.SubtitleStyle ReadSubtitleStyle()
     {

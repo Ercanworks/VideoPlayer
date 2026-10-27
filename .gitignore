@@ -1,4 +1,4 @@
-# Derleme çıktıları
+# Build output
 bin/
 obj/
 Uygulama/
@@ -6,8 +6,8 @@ Uygulama_yeni/
 *.user
 .vs/
 
-# mpv kütüphanesi GitHub'ın 100 MB sınırını aşıyor; tools/libmpv-indir.ps1 ile indirilir
+# The mpv library exceeds GitHub's 100 MB limit; downloaded with tools/libmpv-indir.ps1
 lib/libmpv-2.dll
 
-# Yerel test dosyaları
+# Local test files
 test_videolar/

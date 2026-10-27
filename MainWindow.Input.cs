@@ -34,7 +34,7 @@ public partial class MainWindow
 
     bool CanResize => WindowState == WindowState.Normal && !_fullscreen;
 
-    /// <summary>Fare pencere kenarındaysa Windows'un boyutlandırma kodunu döndürür.</summary>
+    /// <summary>If the mouse is on the window edge, returns Windows' resize hit-test code.</summary>
     int EdgeHit(Point p)
     {
         if (!CanResize) return 0;
@@ -66,7 +66,7 @@ public partial class MainWindow
     void Overlay_MouseMove(object sender, MouseEventArgs e)
     {
         var pos = e.GetPosition(Overlay);
-        // WPF düzen değişince de MouseMove gönderir; gerçekten hareket edildiyse göster
+        // WPF also sends MouseMove when the layout changes; only show if the mouse really moved
         if ((pos - _lastMouse).Length > 2) { ShowControls(); ShowTitle(); }
         _lastMouse = pos;
 
@@ -74,7 +74,7 @@ public partial class MainWindow
         {
             var edgeCursor = EdgeCursor(EdgeHit(pos));
             Overlay.Cursor = edgeCursor ?? (_controlsVisible ? null : Cursors.None);
-            // Kenardayken (köşedeki pencere düğmelerinin üstü dahil) boyutlandırma imleci görünsün
+            // At the edge (including over the window buttons in the corner) show the resize cursor
             Overlay.ForceCursor = edgeCursor != null;
             return;
         }
@@ -88,17 +88,17 @@ public partial class MainWindow
         }
         if (!_swiping) return;
 
-        // Video fareyi birebir izleyerek pencere içinde kayar, boşalan taraf siyah kalır;
-        // ekrandan tamamen çıkana kadar çekilebilir. mpv videonun kendisini kaydırdığı için
-        // video oynamaya devam eder. Her fare hareketinde hemen gönderilir, mpv ekranın her
-        // yenilemesinde en güncelini çizer.
+        // The video follows the mouse one-to-one and slides inside the window, the uncovered side stays black;
+        // it can be pulled until it is fully off screen. Because mpv shifts the video itself,
+        // the video keeps playing. Sent immediately on every mouse move; mpv draws the latest one
+        // on every screen refresh.
         _shiftDip = d.X;
         SendShift(d.X);
     }
 
     /// <summary>
-    /// Kenardan boyutlandırma. Önizleme olayında yapılıyor ki sağ üst köşedeki kapat düğmesi
-    /// gibi kenara değen düğmeler tıklamayı almadan önce yakalansın.
+    /// Resizing from the edge. Done in the preview event so that buttons touching the edge, like
+    /// the close button in the top right corner, are caught before they get the click.
     /// </summary>
     void Overlay_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -117,7 +117,7 @@ public partial class MainWindow
             return;
         if (Environment.TickCount64 - _popupClosedTick < 300) { e.Handled = true; return; }
 
-        // Fare yakalama ClickCount'u sıfırladığı için çift tıkı kendimiz algılıyoruz
+        // Mouse capture resets ClickCount, so we detect double clicks ourselves
         var now = Environment.TickCount64;
         var isDouble = now - _lastClickTick <= GetDoubleClickTime() && (pos - _lastClickPos).Length < 8;
         _lastClickTick = isDouble ? 0 : now;
@@ -126,14 +126,14 @@ public partial class MainWindow
         var onTopBar = IsDescendant(TopBar, e.OriginalSource) && !_fullscreen;
         if (isDouble)
         {
-            // Üst şeritte çift tık ekranı kaplar, videoda çift tık tam ekran yapar
+            // Double click on the top strip maximizes, double click on the video goes fullscreen
             if (onTopBar && !_mini) ToggleMaximize();
             else ToggleFullscreen();
             e.Handled = true;
             return;
         }
 
-        // Üst şeritten tutunca pencereyi taşı (Windows'un kendi taşıma/yapıştırma davranışıyla)
+        // Dragging the top strip moves the window (with Windows' own move/snap behavior)
         if (onTopBar)
         {
             StartSystemDrag(HTCAPTION);
@@ -155,12 +155,12 @@ public partial class MainWindow
         Overlay.ReleaseMouseCapture();
         if (!_swiping) return;
 
-        // Videoya tek tıklamak bir şey yapmaz; sadece yana çekme sonraki/önceki videoya geçer
+        // A single click on the video does nothing; only swiping sideways switches to the next/previous video
         _swiping = false;
         EndSwipe((e.GetPosition(Overlay) - _downPoint).X);
     }
 
-    /// <summary>Çekme başladı: önceki animasyonu durdur, video alanının boyutunu ölç.</summary>
+    /// <summary>Swipe started: stop the previous animation, measure the video area.</summary>
     void BeginSwipeVisual()
     {
         StopShiftAnimation();
@@ -176,24 +176,24 @@ public partial class MainWindow
 
         if (success)
         {
-            // Mevcut video çekilen yönde pencereden tamamen kayıp çıkar,
-            // sonra sonraki video kaymadan yerinde başlar
+            // The current video slides fully out of the window in the swipe direction,
+            // then the next video starts in place without sliding
             AnimateShift(Math.Sign(dx) * Math.Max(Overlay.ActualWidth, Math.Abs(_shiftDip)),
                 TimeSpan.FromMilliseconds(200), new QuadraticEase { EasingMode = EasingMode.EaseIn }, () =>
                 {
-                    // Open kaydırmayı sıfırlıyor
+                    // Open resets the shift
                     _shiftDip = 0;
                     go();
                 });
         }
         else
         {
-            // Yeterince çekilmediyse hafifçe yaylanarak yerine döner
+            // If not pulled far enough, it springs gently back into place
             AnimateShift(0, TimeSpan.FromMilliseconds(380), new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 });
         }
     }
 
-    // Kaydırmada kullanılan video alanı boyutu (piksel); çekme başlarken bir kez ölçülür
+    // Video area size used for shifting (pixels); measured once when the swipe starts
     double _shiftViewW, _shiftViewH, _shiftDpi = 1;
     int _shiftAnimId;
 
@@ -210,22 +210,22 @@ public partial class MainWindow
     void SendShift(double dip) => _player.SetShift(dip * _shiftDpi, _shiftViewW, _shiftViewH);
 
     /// <summary>
-    /// Bırakınca yapılan kaydırma animasyonu (kayıp çıkma, yaylanma). WPF'in kendi döngüsü
-    /// saniyede 60 kareyle sınırlı olduğu için ayrı bir iş parçacığında, ekranın her
-    /// yenilemesinde (DwmFlush) bir adım ilerletilir; 144 Hz ekranda 144 adım.
+    /// The shift animation after release (slide out, spring back). WPF's own loop is capped at
+    /// 60 frames per second, so it runs on a separate thread and advances one step per
+    /// screen refresh (DwmFlush); 144 steps on a 144 Hz screen.
     /// </summary>
     void AnimateShift(double to, TimeSpan duration, IEasingFunction ease, Action? completed = null)
     {
         var id = Interlocked.Increment(ref _shiftAnimId);
         var from = _shiftDip;
         CacheShiftGeometry();
-        // Yumuşatma eğrisi bir WPF nesnesi; başka iş parçacığından kullanabilmek için dondur
+        // The easing function is a WPF object; freeze it so it can be used from another thread
         if (ease is Freezable freezable && freezable.CanFreeze) freezable.Freeze();
 
         new Thread(() =>
         {
             var clock = Stopwatch.StartNew();
-            while (Volatile.Read(ref _shiftAnimId) == id) // yeni bir çekme başlarsa dur
+            while (Volatile.Read(ref _shiftAnimId) == id) // stop if a new swipe starts
             {
                 var t = Math.Min(1, clock.Elapsed.TotalMilliseconds / duration.TotalMilliseconds);
                 _shiftDip = from + (to - from) * ease.Ease(t);
@@ -252,12 +252,12 @@ public partial class MainWindow
 
     void Overlay_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        // Farenin yan tuşları: geri = önceki, ileri = sonraki
+        // Mouse side buttons: back = previous, forward = next
         if (e.ChangedButton == MouseButton.XButton1) { Previous(); e.Handled = true; }
         else if (e.ChangedButton == MouseButton.XButton2) { Next(); e.Handled = true; }
     }
 
-    /// <summary>Taşıma veya boyutlandırmayı Windows'a bırak (yapıştırma, Aero Snap dahil).</summary>
+    /// <summary>Hand moving or resizing to Windows (including snapping and Aero Snap).</summary>
     void StartSystemDrag(int hitTest)
     {
         Overlay.ReleaseMouseCapture();
@@ -284,7 +284,7 @@ public partial class MainWindow
         var handled = true;
         switch (key)
         {
-            // Kontrollerin durduğu pencere etkinken Alt+F4 o pencereyi değil oynatıcıyı kapatsın
+            // When the window holding the controls is active, Alt+F4 should close the player, not that window
             case Key.F4 when alt: Close(); break;
             case Key.Space or Key.K or Key.MediaPlayPause or Key.Play or Key.Pause: TogglePlay(); break;
             case Key.Left or Key.J: SkipBy(-BackSeconds); break;
@@ -303,13 +303,13 @@ public partial class MainWindow
             case Key.P or Key.PageUp or Key.MediaPreviousTrack: Previous(); break;
             case Key.O when ctrl: OpenWithDialog(); break;
             case Key.Home: if (_player.IsSeekable) _player.Time = 0; break;
-            // YouTube gibi: Shift + . hızlandırır, Shift + , yavaşlatır;
-            // tek başına . ve , duraklatılmışken bir kare ileri / geri gider
+            // Like YouTube: Shift + . speeds up, Shift + , slows down;
+            // . and , alone step one frame forward / back while paused
             case Key.OemPeriod when shift: StepSpeed(+1); break;
             case Key.OemComma when shift: StepSpeed(-1); break;
             case Key.OemPeriod or Key.Decimal: FrameStep(+1); break;
             case Key.OemComma: FrameStep(-1); break;
-            // YouTube gibi: C altyazıyı açıp kapatır, 0-9 videonun %0-90'ına atlar
+            // Like YouTube: C toggles subtitles, 0-9 jump to 0-90% of the video
             case Key.C when !ctrl: ToggleSubtitles(); break;
             case >= Key.D0 and <= Key.D9 when !ctrl && !alt && !shift: JumpToPercent((key - Key.D0) * 10); break;
             case >= Key.NumPad0 and <= Key.NumPad9: JumpToPercent((key - Key.NumPad0) * 10); break;

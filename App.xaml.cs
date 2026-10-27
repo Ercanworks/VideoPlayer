@@ -8,7 +8,7 @@ namespace Oynatici;
 
 public partial class App : Application
 {
-    // Farklı klasörlerdeki kopyalar (ör. eski ve yeni sürüm) birbirine karışmasın
+    // Copies in different folders (e.g. an old and a new version) must not get mixed up
     static readonly string InstanceKey = Convert.ToHexString(
         System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes(
             AppContext.BaseDirectory.ToLowerInvariant())))[..12];
@@ -22,7 +22,7 @@ public partial class App : Application
         base.OnStartup(e);
         var file = e.Args.FirstOrDefault(File.Exists);
 
-        // Zaten açık bir pencere varsa dosyayı ona gönder ve çık
+        // If a window is already open, send the file to it and exit
         _mutex = new Mutex(true, MutexName, out var first);
         if (!first)
         {
@@ -77,7 +77,7 @@ public partial class App : Application
         thread.Start();
     }
 
-    /// <summary>Windows'ta seçili vurgu rengini kullan (Filmler ve TV gibi).</summary>
+    /// <summary>Use the accent color selected in Windows (like Movies & TV).</summary>
     void ApplyAccentColor()
     {
         try
@@ -87,7 +87,7 @@ public partial class App : Application
                 var c = Color.FromRgb((byte)abgr, (byte)(abgr >> 8), (byte)(abgr >> 16));
                 Resources["AccentBrush"] = new SolidColorBrush(c);
             }
-            // Paletin 3. rengi (indeks 2) "açık 1" tonu; Filmler ve TV çubuklarda bunu kullanıyor
+            // The palette's 3rd color (index 2) is the "light 1" shade; Movies & TV uses it for the bars
             if (Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Accent",
                     "AccentPalette", null) is byte[] { Length: >= 12 } palette)
                 Resources["AccentLightBrush"] = new SolidColorBrush(Color.FromRgb(palette[8], palette[9], palette[10]));

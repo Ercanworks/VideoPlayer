@@ -42,8 +42,8 @@ public partial class MainWindow
                 PlayCurrent();
                 return;
         }
-        // Sonda kal: çubuk videonun bittiği yerde dursun (dosya yarım kalmışsa yarıda),
-        // oynat düğmesi baştan başlatsın
+        // Stay at the end: the bar stops where the video ended (midway if the file is truncated),
+        // and the play button starts from the beginning
         long length = _player.Length, time = _player.Time;
         Seek.Value = time >= length - 1000 ? Seek.Maximum : Math.Max(0, time);
         UpdatePlayState();
@@ -91,17 +91,17 @@ public partial class MainWindow
         ShowToast("\uEC4A", L.Speed(rate));
     }
 
-    // ---------------------------------------------------------------- İlerleme çubuğu
+    // ---------------------------------------------------------------- Seek bar
 
     void OnSeekDragMoved(double value)
     {
         TimeText.Text = FormatTime((long)value);
-        // Zaman balonu basınca değil, sürüklemeye başlayınca görünür (Filmler ve TV'de basılı
-        // tutmak balon göstermiyor)
+        // The time bubble appears when dragging starts, not on press (pressing and holding in Movies & TV
+        // does not show the bubble)
         if (_seekDrag.HasMoved) ShowSeekTip(value);
-        // Sürüklerken videoyu da takip ettir ama her harekette değil; motoru saniyede
-        // onlarca kez sardırmak görüntüyü takıltır. Atlanan son konum, fare durunca
-        // zamanlayıcıyla sarılır ki görüntü tam fareyle aynı yerde kalsın.
+        // Make the video follow while dragging, but not on every move; seeking the engine dozens of times
+        // a second makes the picture stutter. The last skipped position is seeked by a timer once the mouse
+        // stops, so the picture ends up exactly where the mouse is.
         _scrubTarget = (long)value;
         if (!CanScrub) return;
         var now = Environment.TickCount64;
@@ -123,19 +123,19 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Sürüklerken video duraklasın; fare durduğunda video o noktadan oynamaya başlayıp
-    /// bir sonraki harekette geri sarılınca aynı sahne tekrar tekrar görünüyordu.
-    /// Böylece fare nerede durursa tam o andaki kare görünür.
+    /// Pause while dragging; otherwise when the mouse stopped, the video started playing from that point
+    /// and was seeked back on the next move, so the same scene showed over and over.
+    /// This way the frame at exactly the mouse position is shown wherever the mouse stops.
     /// </summary>
     /// <summary>
-    /// Video bitmiş olsa da sarılabilir: mpv dosyayı kapatmıyor, son karede bekliyor (keep-open).
-    /// Sadece dosya yokken veya açılamadıysa sarılamaz.
+    /// Seeking works even if the video has ended: mpv does not close the file, it waits on the last frame (keep-open).
+    /// Only impossible when there is no file or it could not be opened.
     /// </summary>
     bool CanScrub => _player.State is not (PlayerState.Idle or PlayerState.Error) && _player.IsSeekable;
 
     void OnSeekDragStarted()
     {
-        // Bitmiş videoda çubuğu sürükleyip bırakınca o noktadan oynamaya devam etsin
+        // On a finished video, dragging and releasing the bar continues playing from that point
         _resumeAfterScrub = _player.IsPlaying || _player.State == PlayerState.Ended;
         if (_player.IsPlaying) _player.SetPause(true);
     }
@@ -189,9 +189,9 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Ses ayarını değiştirince kısa bir süre sonra kaydet. Önceden sadece oynatıcı kapanırken
-    /// kaydediliyordu; düzgün kapanmazsa son ses ayarı kayboluyordu. Ses çubuğu sürüklenirken
-    /// her adımda diske yazmamak için son değişiklikten 1 sn sonra yazılır.
+    /// Save shortly after the volume changes. Previously it was only saved when the player closed;
+    /// if it did not close cleanly, the last volume was lost. To avoid writing to disk on every step
+    /// while dragging the volume bar, it is written 1 s after the last change.
     /// </summary>
     void SaveSettingsSoon()
     {

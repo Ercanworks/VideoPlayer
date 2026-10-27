@@ -7,8 +7,8 @@ namespace Oynatici.Engine;
 public enum PlayerState { Idle, Opening, Playing, Paused, Ended, Error }
 
 /// <summary>
-/// libmpv (mpv'nin kütüphane hâli) ile oynatma. Olaylar mpv'nin olay iş parçacığından gelir;
-/// dinleyen taraf arayüz iş parçacığına aktarmalıdır.
+/// Playback with libmpv (mpv as a library). Events come from mpv's event thread;
+/// the listener must marshal to the UI thread.
 /// </summary>
 public sealed class MpvEngine : IDisposable
 {
@@ -22,17 +22,17 @@ public sealed class MpvEngine : IDisposable
 
     public event Action? Playing, Paused, Stopped, EndReached, Error;
 
-    /// <summary>Sürüklerken en fazla bu sıklıkta sarılır (ms).</summary>
+    /// <summary>While dragging, seek at most this often (ms).</summary>
     public int ScrubIntervalMs => 50;
 
-    /// <param name="headless">Görüntü ve ses çıkışı olmadan (testler için).</param>
+    /// <param name="headless">Without video and audio output (for tests).</param>
     public MpvEngine(bool headless = false)
     {
         _ctx = Native.mpv_create();
         if (_ctx == IntPtr.Zero) throw new InvalidOperationException("mpv başlatılamadı");
 
-        // Kullanıcının kendi mpv.conf'u ve mpv'nin kendi arayüzü/kısayolları devre dışı;
-        // her şeyi oynatıcı yönetiyor
+        // The user's own mpv.conf and mpv's own UI/shortcuts are disabled;
+        // the player manages everything
         SetOption("config", "no");
         SetOption("terminal", "no");
         SetOption("osc", "no");
@@ -42,30 +42,30 @@ public sealed class MpvEngine : IDisposable
         SetOption("input-cursor", "no");
         SetOption("cursor-autohide", "no");
         SetOption("hwdec", "auto-safe");
-        // Ekranın yenileme hızına senkron çiz. 144 Hz'de ölçüldü (ekranı saniyede 240 kez
-        // yakalayıp kayan çubuğun konumu izlenerek): kare atlamadan, ses saatine göre zamanlamadan
-        // daha düzgün ritim (60 fps: 3,2 → 2,55 px sapma); 23,976 fps filmler 24'e hafifçe
-        // hızlanıp 144 Hz'e tam oturur. Ara kare üretme de bunu gerektirir.
-        // (1.9.2'deki "kare kaybı" ölçümü hatalıydı: ekranı tam 144 Hz'de örnekleyen yakalama,
-        // her yenilemede çizim yapan bu modda iki güncellemeyi bir örneğe düşürüp kayıp sanıyordu.)
+        // Draw in sync with the display refresh rate. Measured at 144 Hz (by capturing the screen 240 times
+        // a second and tracking a moving bar): no dropped frames and a smoother cadence than timing by the
+        // audio clock (60 fps: 3.2 → 2.55 px deviation); 23.976 fps films speed up slightly to 24
+        // and fit 144 Hz exactly. Interpolation requires it too.
+        // (The "frame loss" measurement in 1.9.2 was wrong: a capture sampling the screen at exactly 144 Hz
+        // merged two updates into one sample in this draw-every-refresh mode and took it for a loss.)
         SetOption("video-sync", "display-resample");
-        // Görüntü kalitesi (ölçülerek seçildi): mpv'nin yüksek kalite profili (EWA Lanczos ile
-        // büyütme ve renk kanalı ölçekleme, daha az halkalanma, HDR'de ayrıntı geri kazanımı).
-        // HDR video SDR ekranda ITU BT.2390 eğrisi ve tonu koruyan gam eşlemesiyle gösterilir:
-        // varsayılanlar orta tonları ~12 birim açıyor ve doygun renkleri solduruyordu (47 birime
-        // kadar sapma); bunlarla gri tonlar aynen kalıyor, SDR gamı içindeki renkler en çok 18 birim
+        // Picture quality (chosen by measurement): mpv's high quality profile (EWA Lanczos for
+        // upscaling and chroma scaling, less ringing, detail recovery in HDR).
+        // HDR video on an SDR display uses the ITU BT.2390 curve and tone-preserving gamut mapping:
+        // the defaults brightened mid-tones by ~12 units and washed out saturated colors (up to 47 units
+        // of deviation); with these, grays stay the same and colors inside the SDR gamut shift by at most 18 units
         SetOption("profile", "high-quality");
         SetOption("tone-mapping", "bt.2390");
         SetOption("gamut-mapping-mode", "relative");
-        // Altyazılar: videoyla aynı adla başlayan dosyalar da yüklensin (Film.tr.srt, Film.Turkish.srt)
-        // ve yaygın alt klasörlerde de aransın; Windows dilindeki altyazı seçilsin ama ses de o
-        // dildeyse (ör. Türkçe filmde Türkçe altyazı) yalnızca "zorunlu" altyazılar açılsın
+        // Subtitles: also load files starting with the video's name (Film.tr.srt, Film.Turkish.srt)
+        // and search common subfolders; pick subtitles in the Windows language, but if the audio is in
+        // that language too (e.g. Turkish subtitles on a Turkish film), only enable "forced" subtitles
         SetOption("sub-auto", "fuzzy");
-        // Windows büyük/küçük harf ayırmıyor; "Subs" ve "subs" ikisi de yazılırsa altyazı iki kez yüklenir
+        // Windows is case-insensitive; if both "Subs" and "subs" are listed, subtitles load twice
         SetOption("sub-file-paths", "Subs;Subtitles;Sub;Altyazı;Altyazılar;Altyazilar");
         SetOption("slang", DefaultSubtitleLanguages);
         SetOption("subs-with-matching-audio", "forced");
-        // Video bitince dosyayı kapatma, son karede bekle (geri sarılabilsin)
+        // Don't close the file when the video ends, wait on the last frame (so it can be seeked back)
         SetOption("keep-open", "yes");
         SetOption("idle", "yes");
         SetOption("force-window", "yes");
@@ -110,14 +110,14 @@ public sealed class MpvEngine : IDisposable
         Command("loadfile", path, "replace");
     }
 
-    // ---------------------------------------------------------------- Altyazı ve ses izleri
+    // ---------------------------------------------------------------- Subtitle and audio tracks
 
     static readonly string DefaultSubtitleLanguages =
         CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "tr" ? "tr,tur" : "en,eng";
 
     /// <summary>
-    /// Kullanıcının bu oturumda yaptığı seçim sonraki videolara da uygulanır: altyazıyı
-    /// kapattıysa kapalı açılır, bir dil seçtiyse o dil, bir ses dili seçtiyse o ses tercih edilir.
+    /// The choice the user makes in this session applies to the next videos too: if subtitles were
+    /// turned off they open off, if a language was chosen that language, if an audio language was chosen that audio is preferred.
     /// </summary>
     public bool SubtitlesOff { get; set; }
     public string? PreferredSubtitleLanguage { get; set; }
@@ -134,7 +134,7 @@ public sealed class MpvEngine : IDisposable
     public sealed record Track(int Id, string Type, string? Language, string? Title, string? Codec,
         int Channels, bool Selected, bool External, bool Forced);
 
-    /// <summary>Açık dosyadaki altyazı ve ses izleri (mpv'nin sırasıyla).</summary>
+    /// <summary>Subtitle and audio tracks in the open file (in mpv's order).</summary>
     public List<Track> Tracks
     {
         get
@@ -159,18 +159,18 @@ public sealed class MpvEngine : IDisposable
         }
     }
 
-    /// <summary>Altyazı izini seçer; null altyazıyı kapatır.</summary>
+    /// <summary>Selects a subtitle track; null turns subtitles off.</summary>
     public void SelectSubtitle(int? id) => SetProperty("sid", id?.ToString(CultureInfo.InvariantCulture) ?? "no");
     public void SelectAudio(int id) => SetProperty("aid", id.ToString(CultureInfo.InvariantCulture));
 
-    /// <summary>Dışarıdan bir altyazı dosyası ekleyip seçer.</summary>
+    /// <summary>Adds an external subtitle file and selects it.</summary>
     public void AddSubtitle(string path) => CommandAsync("sub-add", path, "select");
 
-    const int DefaultSubMargin = 34; // mpv'nin varsayılanı, 720 satırlık ölçekte
+    const int DefaultSubMargin = 34; // mpv's default, on the 720-line scale
 
     /// <summary>
-    /// Altyazıları pencerenin altından en az bu oran kadar yukarıda tutar (0-1); kontroller
-    /// görünürken altyazı düğmelerin altında kalmasın diye. mpv'nin birimi 720 satırlık ölçek.
+    /// Keeps subtitles at least this fraction above the bottom of the window (0-1), so they don't
+    /// end up under the buttons while the controls are visible. mpv's unit is the 720-line scale.
     /// </summary>
     public void SetSubtitleClearance(double fractionOfHeight)
     {
@@ -182,7 +182,7 @@ public sealed class MpvEngine : IDisposable
 
     int _subMargin = DefaultSubMargin;
 
-    /// <summary>Altyazı görünümü (Windows'un altyazı ayarlarından); null olanlar mpv'nin varsayılanı.</summary>
+    /// <summary>Subtitle look (from Windows' caption settings); null values keep mpv's default.</summary>
     public sealed record SubtitleStyle(double Scale, string? Font, string? Color, string? BackColor,
         double? OutlineSize, double? ShadowOffset);
 
@@ -197,22 +197,22 @@ public sealed class MpvEngine : IDisposable
         SetProperty("sub-shadow-offset", (s.ShadowOffset ?? 0).ToString("0.##", CultureInfo.InvariantCulture));
     }
 
-    // ---------------------------------------------------------------- Görüntü kalitesi
+    // ---------------------------------------------------------------- Picture quality
 
     volatile bool _eightBit;
 
-    /// <summary>0: yüksek kalite, 1: mpv'nin varsayılan ölçekleyicileri, 2: hızlı (zayıf ekran kartları).</summary>
+    /// <summary>0: high quality, 1: mpv's default scalers, 2: fast (weak GPUs).</summary>
     public int QualityLevel { get; private set; }
 
     /// <summary>
-    /// 8 bitlik videolarda yumuşak renk geçişlerindeki (gökyüzü, karanlık sahneler) basamakları
-    /// giderir. 10 bitlik videolarda bu sorun olmadığından ince ayrıntıya dokunmamak için kapalı.
+    /// Removes banding in smooth gradients (sky, dark scenes) in 8-bit videos.
+    /// Off for 10-bit videos, which don't have this problem, to leave fine detail untouched.
     /// </summary>
     void UpdateDeband() => CommandAsync("set", "deband", _eightBit && QualityLevel == 0 ? "yes" : "no");
 
     /// <summary>
-    /// Ekran kartı yüksek kalite ayarlarına yetişemiyorsa (kare düşüyorsa) bir kademe hafifletir.
-    /// Daha düşürülecek kademe kalmadıysa false.
+    /// If the GPU cannot keep up with the high quality settings (drops frames), lightens them one level.
+    /// False if there is no lower level left.
     /// </summary>
     public bool ReduceQuality()
     {
@@ -235,12 +235,12 @@ public sealed class MpvEngine : IDisposable
     }
 
     /// <summary>
-    /// Ekran kartı veya çözücü yetişemediği için atlanan ya da geciken kareler (dosya başına).
-    /// Ekran senkronlu çizimde yetişemeyen kareler "geciken" olarak sayılıyor.
+    /// Frames dropped or delayed because the GPU or decoder could not keep up (per file).
+    /// In display-synced drawing, frames that could not keep up are counted as "delayed".
     /// </summary>
     public long DroppedFrames => (long)(GetDouble("frame-drop-count") + GetDouble("vo-delayed-frame-count"));
 
-    /// <summary>Son sarma veya dosya açma anı (Environment.TickCount64); sonrasındaki kısa takılmalar sayılmasın.</summary>
+    /// <summary>Time of the last seek or file open (Environment.TickCount64); short stutters right after don't count.</summary>
     public long LastSeekTick { get; private set; }
 
     public void SetPause(bool pause) => SetProperty("pause", pause ? "yes" : "no");
@@ -264,7 +264,7 @@ public sealed class MpvEngine : IDisposable
     public long Time
     {
         get => (long)(GetDouble("time-pos") * 1000);
-        // Tam kareye sar (mpv bunu hızlı yapıyor); arayüzü bekletmemek için eşzamansız
+        // Exact seek (mpv does this fast); asynchronous so the UI does not wait
         set
         {
             LastSeekTick = Environment.TickCount64;
@@ -273,17 +273,17 @@ public sealed class MpvEngine : IDisposable
     }
 
     public long Length => (long)(GetDouble("duration") * 1000);
-    /// <summary>Duraklatılmışken bir kare ileri (1) veya geri (-1).</summary>
+    /// <summary>One frame forward (1) or back (-1) while paused.</summary>
     public void FrameStep(int dir) => CommandAsync(dir > 0 ? "frame-step" : "frame-back-step");
 
     public int Volume { set => SetProperty("volume", value.ToString(CultureInfo.InvariantCulture)); }
     public bool Mute { set => SetProperty("mute", value ? "yes" : "no"); }
 
     /// <summary>
-    /// Ara kare üretme: ekran yenilemesi iki video karesinin arasına düştüğünde kareleri
-    /// zamanına göre harmanlar; 60 fps videonun 144 Hz ekrandaki 2-3 yenilemelik düzensiz
-    /// kare süreleri kaybolur (ölçüldü: 2,55 → 2,0 px sapma; 30 fps'te 4,5 → 3,55).
-    /// Ekran senkronlu çizimle çalışır. Oynatırken açılıp kapatılabilir.
+    /// Interpolation: when a display refresh falls between two video frames, frames are blended
+    /// by their timing; the uneven 2-3 refresh frame durations of 60 fps video on a 144 Hz screen
+    /// disappear (measured: 2.55 → 2.0 px deviation; at 30 fps 4.5 → 3.55).
+    /// Works with display-synced drawing. Can be toggled during playback.
     /// </summary>
     public bool Interpolation
     {
@@ -301,17 +301,17 @@ public sealed class MpvEngine : IDisposable
     }
 
     /// <summary>
-    /// Videoyu pencere içinde yatayda kaydırır (piksel; eksi sola). Boşalan yer siyah kalır.
-    /// Video alanının boyutu da verilir ki her seferinde mpv'ye sormak gerekmesin.
+    /// Shifts the video horizontally inside the window (pixels; negative is left). The uncovered area stays black.
+    /// The video area size is passed in too, so mpv doesn't have to be asked every time.
     /// </summary>
     public void SetShift(double pixels, double viewWidth, double viewHeight)
     {
-        // mpv'nin kaydırma birimi, ekranda gösterilen video genişliğinin oranı.
-        // Gösterilen genişlik: video alanına en-boy oranı korunarak sığdırılmış video.
-        // En-boy oranı olay döngüsünde izleniyor; burada mpv'ye hiç soru sorulmuyor ki
-        // mpv meşgulken arayüz beklemesin.
+        // mpv's shift unit is a fraction of the displayed video width.
+        // Displayed width: the video fitted into the video area keeping its aspect ratio.
+        // The aspect ratio is tracked in the event loop; mpv is not queried here at all, so
+        // the UI doesn't wait while mpv is busy.
         var aspect = _aspect;
-        // Telefonla dik çekilmiş videolarda mpv döndürmeden önceki oranı bildiriyor
+        // For portrait videos shot on a phone, mpv reports the ratio before rotation
         if (_rotate % 180 == 90 && aspect > 0) aspect = 1 / aspect;
         var shown = aspect > 0 && viewHeight > 0 ? Math.Min(viewWidth, viewHeight * aspect) : viewWidth;
         SetPan(shown > 0 ? pixels / shown : 0);
@@ -373,7 +373,7 @@ public sealed class MpvEngine : IDisposable
                     }
                     if (ev.ReplyUserdata == 5)
                     {
-                        // 8 bit 4:2:0 videoda piksel başına ortalama 12 bit; 10 bitte 24 (p010)
+                        // 8-bit 4:2:0 video averages 12 bits per pixel; 10-bit 24 (p010)
                         var bpp = prop.Format == Native.FormatInt64 && prop.Data != IntPtr.Zero
                             ? Marshal.ReadInt64(prop.Data) : 0;
                         _eightBit = bpp is > 0 and <= 12;
@@ -398,7 +398,7 @@ public sealed class MpvEngine : IDisposable
         }
     }
 
-    // ---------------------------------------------------------------- libmpv yardımcıları
+    // ---------------------------------------------------------------- libmpv helpers
 
     static byte[] U(string s) => Encoding.UTF8.GetBytes(s + "\0");
 
@@ -456,8 +456,8 @@ public sealed class MpvEngine : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        // Olay döngüsü mpv_wait_event'te beklerken mpv yok edilirse çöker;
-        // önce uyandırıp döngünün bitmesini bekle
+        // If mpv is destroyed while the event loop waits in mpv_wait_event, it crashes;
+        // wake it up first and wait for the loop to finish
         Native.mpv_wakeup(_ctx);
         _eventThread?.Join(1000);
         Native.mpv_terminate_destroy(_ctx);
