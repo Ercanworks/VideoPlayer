@@ -1,0 +1,19 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <!-- Builds the per-user MSI: dotnet build Installer -c Release
+       Publishes the player self-contained first, then packages that folder. -->
+  <PropertyGroup>
+    <AppVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\..\Oynatici.csproj')), '&lt;Version&gt;(.*?)&lt;/Version&gt;').Groups[1].Value)</AppVersion>
+    <AppPublishDir>$(MSBuildProjectDirectory)\obj\publish</AppPublishDir>
+    <OutputName>VideoPlayer-v$(AppVersion)-win-x64</OutputName>
+    <DefineConstants>Version=$(AppVersion);PublishDir=$(AppPublishDir)</DefineConstants>
+    <!-- Per-user files under %LocalAppData% have file key paths; these ICEs expect registry ones -->
+    <SuppressIces>ICE38;ICE64;ICE91</SuppressIces>
+  </PropertyGroup>
+
+  <Target Name="PublishApp" BeforeTargets="BeforeBuild">
+    <RemoveDir Directories="$(AppPublishDir)" />
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\Oynatici.csproj&quot; -c Release -r win-x64 --self-contained true -p:DebugType=none -o &quot;$(AppPublishDir)&quot;" />
+  </Target>
+
+</Project>

@@ -85,7 +85,14 @@ Requirements: .NET 8 SDK (with the Windows 10 SDK targeting pack, restored autom
 
 # Build into the Uygulama folder
 dotnet publish -c Release -o Uygulama -p:DebugType=none
+
+# Installer: self-contained, per-user MSI (no admin rights needed) in Installer\bin\Release
+dotnet build Installer -c Release
 ```
+
+The installer puts the player in `%LocalAppData%\Programs\VideoPlayer` with a Start menu
+shortcut; uninstalling also removes the file association made with "Make default video player".
+It is built with [WiX Toolset](https://wixtoolset.org) 5, restored from NuGet by the build.
 
 `libmpv-2.dll` is not in the repository because it exceeds GitHub's file size limit; the
 script downloads it into `lib\` and the build copies it to the output.

@@ -1,0 +1,42 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!-- Per-user install into %LocalAppData%\Programs\VideoPlayer: no administrator rights needed.
+       Settings (%APPDATA%) and the file association (HKCU) are per-user already. -->
+  <Package Name="Video Player" Manufacturer="Ercanworks" Version="$(var.Version)"
+           UpgradeCode="60C2CDBB-C986-493D-9FED-EF5EA765001A" Scope="perUser" Language="1033">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Video Player is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="..\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="VideoPlayer" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**" />
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="AppShortcut" Name="Video Player" Target="[INSTALLFOLDER]VideoPlayer.exe"
+                  WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+        <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+        <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsFolder" On="uninstall" />
+        <!-- Undo what "Make default video player" registered (FileAssociation.cs) -->
+        <RemoveRegistryKey Root="HKCU" Key="Software\Classes\Oynatici.Video" Action="removeOnUninstall" />
+        <RemoveRegistryKey Root="HKCU" Key="Software\Classes\Applications\VideoPlayer.exe" Action="removeOnUninstall" />
+        <RemoveRegistryKey Root="HKCU" Key="Software\Oynatici\Capabilities" Action="removeOnUninstall" />
+        <RegistryValue Root="HKCU" Key="Software\Oynatici\Installer" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Package>
+</Wix>
