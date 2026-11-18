@@ -11,6 +11,10 @@
     <SuppressIces>ICE38;ICE64;ICE91</SuppressIces>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
   <Target Name="PublishApp" BeforeTargets="BeforeBuild">
     <RemoveDir Directories="$(AppPublishDir)" />
     <Exec Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\Oynatici.csproj&quot; -c Release -r win-x64 --self-contained true -p:DebugType=none -o &quot;$(AppPublishDir)&quot;" />

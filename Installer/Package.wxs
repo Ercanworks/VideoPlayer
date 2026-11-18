@@ -1,14 +1,28 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <!-- Per-user install into %LocalAppData%\Programs\VideoPlayer: no administrator rights needed.
        Settings (%APPDATA%) and the file association (HKCU) are per-user already. -->
   <Package Name="Video Player" Manufacturer="Ercanworks" Version="$(var.Version)"
            UpgradeCode="60C2CDBB-C986-493D-9FED-EF5EA765001A" Scope="perUser" Language="1033">
-    <MajorUpgrade DowngradeErrorMessage="A newer version of Video Player is already installed." />
+    <!-- The old version is removed after the new one is installed: components both share stay, so
+         the file association isn't removed (and lost) on every upgrade -->
+    <MajorUpgrade Schedule="afterInstallExecute" AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of Video Player is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Icon Id="AppIcon" SourceFile="..\app.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
     <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- Wizard: welcome, license, choose shortcuts, install, finish (with "Launch") -->
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Video Player" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction Id="LaunchApp" Directory="INSTALLFOLDER" ExeCommand="&quot;[INSTALLFOLDER]VideoPlayer.exe&quot;" Return="asyncNoWait" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApp"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
 
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="ProgramsFolder" Name="Programs">
@@ -18,12 +32,7 @@
 
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
       <Files Include="$(var.PublishDir)\**" />
-    </ComponentGroup>
-
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Component Id="StartMenuShortcut">
-        <Shortcut Id="AppShortcut" Name="Video Player" Target="[INSTALLFOLDER]VideoPlayer.exe"
-                  WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+      <Component Id="Cleanup">
         <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
         <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsFolder" On="uninstall" />
         <!-- Undo what "Make default video player" registered (FileAssociation.cs) -->
@@ -32,11 +41,32 @@
         <RemoveRegistryKey Root="HKCU" Key="Software\Oynatici\Capabilities" Action="removeOnUninstall" />
         <RegistryValue Root="HKCU" Key="Software\Oynatici\Installer" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
       </Component>
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenuShortcut" Name="Video Player" Target="[INSTALLFOLDER]VideoPlayer.exe"
+                  WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\Oynatici\Installer" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
     </StandardDirectory>
 
-    <Feature Id="Main">
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut">
+        <Shortcut Id="DesktopShortcut" Name="Video Player" Target="[INSTALLFOLDER]VideoPlayer.exe"
+                  WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\Oynatici\Installer" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="Video Player" Description="The video player." AllowAbsent="no" Display="expand">
       <ComponentGroupRef Id="AppFiles" />
-      <ComponentRef Id="StartMenuShortcut" />
+      <Feature Id="StartMenu" Title="Start menu shortcut" Description="Adds Video Player to the Start menu.">
+        <ComponentRef Id="StartMenuShortcut" />
+      </Feature>
+      <Feature Id="Desktop" Title="Desktop shortcut" Description="Adds a Video Player shortcut to the desktop.">
+        <ComponentRef Id="DesktopShortcut" />
+      </Feature>
     </Feature>
   </Package>
 </Wix>

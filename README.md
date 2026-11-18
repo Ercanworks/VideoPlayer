@@ -90,8 +90,9 @@ dotnet publish -c Release -o Uygulama -p:DebugType=none
 dotnet build Installer -c Release
 ```
 
-The installer puts the player in `%LocalAppData%\Programs\VideoPlayer` with a Start menu
-shortcut; uninstalling also removes the file association made with "Make default video player".
+The installer is a short wizard (license, optional Start menu and desktop shortcuts, launch when
+done) that puts the player in `%LocalAppData%\Programs\VideoPlayer`; uninstalling also removes
+the file association made with "Make default video player" (upgrades keep it).
 It is built with [WiX Toolset](https://wixtoolset.org) 5, restored from NuGet by the build.
 
 `libmpv-2.dll` is not in the repository because it exceeds GitHub's file size limit; the
