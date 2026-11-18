@@ -89,6 +89,7 @@ public sealed class MpvEngine : IDisposable
         Native.mpv_observe_property(_ctx, 3, U("video-params/aspect"), Native.FormatDouble);
         Native.mpv_observe_property(_ctx, 4, U("video-params/rotate"), Native.FormatInt64);
         Native.mpv_observe_property(_ctx, 5, U("video-params/average-bpp"), Native.FormatInt64);
+        PatchedStream.Register(_ctx);
         _eventThread = new Thread(EventLoop) { IsBackground = true, Name = "mpv olayları" };
         _eventThread.Start();
 
@@ -107,8 +108,22 @@ public sealed class MpvEngine : IDisposable
         SetPan(0);
         LastSeekTick = Environment.TickCount64;
         ApplyTrackPreferences();
-        Command("loadfile", path, "replace");
+        // Damaged clips are read with their fake parameter sets neutralised (see DamagedVideo). The check
+        // reads the file's index, which can take a second on a cold disk, so it runs off the UI thread;
+        // if another file is opened (or playback stops) meanwhile, its result is dropped
+        int request;
+        lock (_openLock) request = ++_openRequest;
+        Task.Run(() =>
+        {
+            var patches = DamagedVideo.FakeParameterSets(path);
+            var url = patches != null ? PatchedStream.Url(path, patches) : path;
+            lock (_openLock)
+                if (request == _openRequest && !_disposed) Command("loadfile", url, "replace");
+        });
     }
+
+    readonly object _openLock = new();
+    int _openRequest;
 
     // ---------------------------------------------------------------- Subtitle and audio tracks
 
@@ -247,6 +262,7 @@ public sealed class MpvEngine : IDisposable
 
     public void Stop()
     {
+        lock (_openLock) _openRequest++;
         if (_initialized) Command("stop");
     }
 
@@ -455,7 +471,7 @@ public sealed class MpvEngine : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true;
+        lock (_openLock) _disposed = true;
         // If mpv is destroyed while the event loop waits in mpv_wait_event, it crashes;
         // wake it up first and wait for the loop to finish
         Native.mpv_wakeup(_ctx);
