@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -57,6 +58,15 @@ public sealed class MpvEngine : IDisposable
         SetOption("profile", "high-quality");
         SetOption("tone-mapping", "bt.2390");
         SetOption("gamut-mapping-mode", "relative");
+        // Keep compiled shaders on disk. mpv's default cache folder is in its config folder, which
+        // "config=no" turns off, so every launch compiled them again the first time a new size or video
+        // format needed them (measured: the first fullscreen dropped ~30 frames, 0.25-0.4 s of compiling;
+        // from the second launch on, with the cache, 1-3 frames). mpv only creates the last folder of the path.
+        var shaderCache = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Oynatici", "shader-cache");
+        try { Directory.CreateDirectory(shaderCache); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        SetOption("gpu-shader-cache-dir", shaderCache);
         // Subtitles: also load files starting with the video's name (Film.tr.srt, Film.Turkish.srt)
         // and search common subfolders; pick subtitles in the Windows language, but if the audio is in
         // that language too (e.g. Turkish subtitles on a Turkish film), only enable "forced" subtitles
