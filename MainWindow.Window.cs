@@ -36,6 +36,7 @@ public partial class MainWindow
         {
             GetWindowRect(_hwnd, out _rectBeforeFullscreen);
             _fullscreen = true;
+            MarkFullscreen(true);
             var monitor = CurrentMonitor().Monitor;
             MoveWindowTo(monitor);
             // Windows keeps a window with a caption style below the taskbar, so
@@ -47,6 +48,7 @@ public partial class MainWindow
         else
         {
             _fullscreen = false;
+            MarkFullscreen(false);
             WindowStyle = WindowStyle.SingleBorderWindow;
             ResizeMode = ResizeMode.CanResize;
             MoveWindowTo(_rectBeforeFullscreen);
@@ -258,6 +260,36 @@ public partial class MainWindow
         int r = (int)Math.Round(m.Right * dpi.DpiScaleX), b = (int)Math.Round(m.Bottom * dpi.DpiScaleY);
         SetWindowPos(_overlayHwnd, IntPtr.Zero, x + l, y + t, Math.Max(0, w - l - r), Math.Max(0, h - t - b),
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    }
+
+    [ComImport, Guid("602D4995-B13A-429b-A66E-1935E44F4317"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface ITaskbarList2
+    {
+        void HrInit();
+        void AddTab(IntPtr hwnd);
+        void DeleteTab(IntPtr hwnd);
+        void ActivateTab(IntPtr hwnd);
+        void SetActiveAlt(IntPtr hwnd);
+        void MarkFullscreenWindow(IntPtr hwnd, [MarshalAs(UnmanagedType.Bool)] bool fullscreen);
+    }
+
+    [ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090")]
+    class TaskbarList { }
+
+    /// <summary>
+    /// Tells the taskbar right away that the window is fullscreen. Otherwise it noticed on its own only
+    /// a couple of frames later and stayed on top of the video meanwhile (seen in screen captures).
+    /// </summary>
+    void MarkFullscreen(bool fullscreen)
+    {
+        try
+        {
+            var taskbar = (ITaskbarList2)new TaskbarList();
+            taskbar.HrInit();
+            taskbar.MarkFullscreenWindow(_hwnd, fullscreen);
+            Marshal.ReleaseComObject(taskbar);
+        }
+        catch (COMException) { }
     }
 
     void RestoreSavedBounds()
