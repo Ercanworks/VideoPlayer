@@ -129,6 +129,25 @@ public partial class MainWindow
             EasingFunction = new QuadraticEase(),
         });
 
+    // WPF draws in one of two ways: on every display refresh while an animation runs, and on a coarse
+    // ~60 Hz timer when idle. Going back to the display refresh took 4 frames to 300 ms (measured), so the
+    // 300 ms fade-in of the controls mostly ran at an uneven 14/21 ms per frame on a 144 Hz screen, and fades
+    // during video switches often did too. An endless animation of an invisible dot keeps WPF on the display
+    // refresh. Measured: every fade at 6.9 ms per frame, frames over 20 ms 33 → 0, and mpv dropped no video
+    // frames (112 before, in the same run); costs ~6% of one CPU core. Paused while minimized.
+    readonly System.Windows.Shapes.Rectangle _pacer = new()
+    {
+        Width = 1, Height = 1, Fill = Brushes.Black, Opacity = 0.01, IsHitTestVisible = false,
+        HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
+    };
+
+    void UpdateRenderPacer()
+    {
+        if (!Overlay.Children.Contains(_pacer)) Overlay.Children.Add(_pacer);
+        _pacer.BeginAnimation(OpacityProperty, WindowState == WindowState.Minimized ? null
+            : new DoubleAnimation(0.01, 0.02, TimeSpan.FromSeconds(1)) { RepeatBehavior = RepeatBehavior.Forever, AutoReverse = true });
+    }
+
     // Measured from Movies & TV: text and controls fade in over 300 ms and out over 700 ms, linearly
     const int FadeInMs = 300, FadeOutMs = 700;
 

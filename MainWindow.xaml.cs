@@ -166,7 +166,8 @@ public partial class MainWindow : Window
         Overlay.MouseWheel += (_, e) => ChangeVolume(e.Delta > 0 ? 5 : -5);
         Overlay.MouseLeave += (_, _) => { if (!_mouseDown) RestartHideTimer(); };
         PreviewKeyDown += OnKeyDown;
-        StateChanged += (_, _) => { UpdateWindowButtons(); FitToScreenEdges(); };
+        StateChanged += (_, _) => { UpdateWindowButtons(); FitToScreenEdges(); UpdateRenderPacer(); };
+        UpdateRenderPacer();
         SizeChanged += (_, _) => { FitToScreenEdges(); _lastResizeTick = Environment.TickCount64; };
         Overlay.SizeChanged += (_, _) => UpdateSubtitleLift(0);
         _subLiftTimer.Tick += (_, _) => StepSubtitleLift();
