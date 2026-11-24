@@ -99,6 +99,15 @@ public sealed class MpvEngine : IDisposable
         Native.mpv_observe_property(_ctx, 3, U("video-params/aspect"), Native.FormatDouble);
         Native.mpv_observe_property(_ctx, 4, U("video-params/rotate"), Native.FormatInt64);
         Native.mpv_observe_property(_ctx, 5, U("video-params/average-bpp"), Native.FormatInt64);
+        // Values the UI reads are kept up to date here, so reading them never waits for mpv
+        // (see SetProperty)
+        Native.mpv_observe_property(_ctx, 6, U("time-pos"), Native.FormatDouble);
+        Native.mpv_observe_property(_ctx, 7, U("duration"), Native.FormatDouble);
+        Native.mpv_observe_property(_ctx, 8, U("seekable"), Native.FormatFlag);
+        Native.mpv_observe_property(_ctx, 9, U("speed"), Native.FormatDouble);
+        Native.mpv_observe_property(_ctx, 10, U("frame-drop-count"), Native.FormatInt64);
+        Native.mpv_observe_property(_ctx, 11, U("vo-delayed-frame-count"), Native.FormatInt64);
+        Native.mpv_observe_property(_ctx, 12, U("track-list"), Native.FormatString);
         PatchedStream.Register(_ctx);
         _eventThread = new Thread(EventLoop) { IsBackground = true, Name = "mpv olayları" };
         _eventThread.Start();
@@ -120,10 +129,12 @@ public sealed class MpvEngine : IDisposable
         ApplyTrackPreferences();
         // Damaged clips are read with their fake parameter sets neutralised (see DamagedVideo). The check
         // walks every frame, which reads practically the whole file: measured 24-27 s for a 3-3.5 GB film
-        // on a cold hard disk (0.35 s once cached). Playback no longer waits for it: if the check is not
-        // done within a moment (short clips usually are), the file opens as it is and is reopened patched,
-        // at the same position, only if the check finds anything. Reading the disk alongside did not slow
-        // playback's reads (measured). If another file is opened (or playback stops), the check is cancelled.
+        // on a cold hard disk (0.35 s once cached). Playback does not wait for it: the file opens as it is
+        // and is reopened patched, at the same position, only if the check finds anything (a 600 MB damaged
+        // clip in the disk cache is checked in ~35 ms, so that happens right after it starts, inside the
+        // damaged part). Damaged files can't be told apart without the check: the in-band parameter sets
+        // that mark them also appear, genuine, in many downloaded films. Reading the disk alongside did not
+        // slow playback's reads (measured). If another file is opened (or playback stops), the check is cancelled.
         int request;
         CancellationTokenSource cts;
         lock (_openLock)
@@ -131,41 +142,37 @@ public sealed class MpvEngine : IDisposable
             request = ++_openRequest;
             _scanCts?.Cancel();
             _scanCts = cts = new CancellationTokenSource();
+            LoadFile(path, "replace");
         }
-        Task.Run(async () =>
+        Task.Run(() =>
         {
-            var scan = Task.Run(() => DamagedVideo.FakeParameterSets(path, cts.Token));
-            if (await Task.WhenAny(scan, Task.Delay(QuickScanMs)) != scan)
+            var patches = DamagedVideo.FakeParameterSets(path, cts.Token);
+            if (patches == null) return;
+            lock (_openLock)
             {
-                Load(path);
-                var patches = await scan;
-                if (patches == null) return;
-                lock (_openLock)
-                {
-                    if (request != _openRequest || _disposed) return;
-                    var pos = (_loaded ? GetDouble("time-pos") : 0).ToString("0.000", CultureInfo.InvariantCulture);
-                    Command("loadfile", PatchedStream.Url(path, patches), "replace", "-1", "start=" + pos);
-                }
-            }
-            else
-            {
-                var patches = scan.Result;
-                Load(patches != null ? PatchedStream.Url(path, patches) : path);
+                if (request != _openRequest || _disposed) return;
+                var pos = (_loaded ? _time : 0).ToString("0.000", CultureInfo.InvariantCulture);
+                _opening = true;
+                LoadFile(PatchedStream.Url(path, patches), "replace", "-1", "start=" + pos);
             }
         });
-
-        void Load(string url)
-        {
-            lock (_openLock)
-                if (request == _openRequest && !_disposed) Command("loadfile", url, "replace");
-        }
     }
-
-    /// <summary>How long opening waits for the damaged-clip check before playing the file as it is.</summary>
-    const int QuickScanMs = 300;
 
     readonly object _openLock = new();
     int _openRequest;
+
+    /// <summary>
+    /// loadfile commands sent but not started yet. The file they replace ends with "stop" before the new
+    /// one starts; that is not a stop for the UI. (A flag set by Open was not enough: a damaged clip reopened
+    /// patched while it was still loading ended its first load right after "loaded" had cleared the flag.)
+    /// </summary>
+    int _loadsPending;
+
+    void LoadFile(params string[] args)
+    {
+        Interlocked.Increment(ref _loadsPending);
+        if (CommandAsync(["loadfile", .. args]) < 0) Interlocked.Decrement(ref _loadsPending);
+    }
     CancellationTokenSource? _scanCts;
 
     // ---------------------------------------------------------------- Subtitle and audio tracks
@@ -198,7 +205,7 @@ public sealed class MpvEngine : IDisposable
         get
         {
             var list = new List<Track>();
-            var json = GetString("track-list");
+            var json = _trackList;
             if (string.IsNullOrEmpty(json)) return list;
             try
             {
@@ -296,7 +303,7 @@ public sealed class MpvEngine : IDisposable
     /// Frames dropped or delayed because the GPU or decoder could not keep up (per file).
     /// In display-synced drawing, frames that could not keep up are counted as "delayed".
     /// </summary>
-    public long DroppedFrames => (long)(GetDouble("frame-drop-count") + GetDouble("vo-delayed-frame-count"));
+    public long DroppedFrames => _frameDrops + _delayedFrames;
 
     /// <summary>Time of the last seek or file open (Environment.TickCount64); short stutters right after don't count.</summary>
     public long LastSeekTick { get; private set; }
@@ -306,7 +313,8 @@ public sealed class MpvEngine : IDisposable
     public void Stop()
     {
         lock (_openLock) { _openRequest++; _scanCts?.Cancel(); }
-        if (_initialized) Command("stop");
+        _opening = false;
+        CommandAsync("stop");
     }
 
     public PlayerState State =>
@@ -318,20 +326,22 @@ public sealed class MpvEngine : IDisposable
         : PlayerState.Playing;
 
     public bool IsPlaying => _loaded && !_paused && !_eof;
-    public bool IsSeekable => _loaded && GetFlag("seekable");
+    public bool IsSeekable => _loaded && _seekable;
 
     public long Time
     {
-        get => (long)(GetDouble("time-pos") * 1000);
-        // Exact seek (mpv does this fast); asynchronous so the UI does not wait
+        get => (long)(_time * 1000);
+        // Exact seek (mpv does this fast); asynchronous so the UI does not wait. The target is taken as
+        // the position right away, so a second skip right after adds to it instead of the old position
         set
         {
             LastSeekTick = Environment.TickCount64;
+            _time = value / 1000.0;
             CommandAsync("seek", (value / 1000.0).ToString("0.000", CultureInfo.InvariantCulture), "absolute+exact");
         }
     }
 
-    public long Length => (long)(GetDouble("duration") * 1000);
+    public long Length => (long)(_duration * 1000);
     /// <summary>One frame forward (1) or back (-1) while paused.</summary>
     public void FrameStep(int dir) => CommandAsync(dir > 0 ? "frame-step" : "frame-back-step");
 
@@ -355,7 +365,7 @@ public sealed class MpvEngine : IDisposable
 
     public double Rate
     {
-        get => _initialized ? GetDouble("speed") : 1;
+        get => _speed;
         set => SetProperty("speed", value.ToString("0.###", CultureInfo.InvariantCulture));
     }
 
@@ -385,6 +395,11 @@ public sealed class MpvEngine : IDisposable
     static readonly byte[] PanName = U("video-pan-x");
     volatile float _aspect;
     volatile int _rotate;
+    // Observed in the event loop (doubles and longs are read and written whole on x64)
+    double _time, _duration, _speed = 1;
+    volatile bool _seekable;
+    long _frameDrops, _delayedFrames;
+    volatile string? _trackList;
 
     void EventLoop()
     {
@@ -397,6 +412,9 @@ public sealed class MpvEngine : IDisposable
             {
                 case Native.EventShutdown:
                     return;
+                case Native.EventStartFile:
+                    if (Interlocked.Decrement(ref _loadsPending) < 0) Interlocked.Exchange(ref _loadsPending, 0);
+                    break;
                 case Native.EventFileLoaded:
                     _opening = false;
                     _loaded = true;
@@ -404,16 +422,18 @@ public sealed class MpvEngine : IDisposable
                     break;
                 case Native.EventEndFile:
                     var end = Marshal.PtrToStructure<Native.EndFile>(ev.Data);
-                    _opening = false;
                     if (end.Reason == Native.EndReasonError)
                     {
+                        _opening = false;
                         _error = true;
                         Error?.Invoke();
                     }
                     else if (end.Reason == Native.EndReasonStop || end.Reason == Native.EndReasonQuit)
                     {
                         _loaded = false;
-                        Stopped?.Invoke();
+                        // Opening another file ends the current one with "stop" too; that is not a stop
+                        // for the UI (it flashed the play icon and started fading in the title on every switch)
+                        if (!_opening && Volatile.Read(ref _loadsPending) == 0) Stopped?.Invoke();
                     }
                     break;
                 case Native.EventPropertyChange:
@@ -439,6 +459,21 @@ public sealed class MpvEngine : IDisposable
                         UpdateDeband();
                         break;
                     }
+                    var has = prop.Data != IntPtr.Zero;
+                    switch (ev.ReplyUserdata)
+                    {
+                        // Unavailable (no file) arrives without data: reads as 0
+                        case 6: _time = has && prop.Format == Native.FormatDouble ? ReadDouble(prop.Data) : 0; continue;
+                        case 7: _duration = has && prop.Format == Native.FormatDouble ? ReadDouble(prop.Data) : 0; continue;
+                        case 8: _seekable = has && prop.Format == Native.FormatFlag && Marshal.ReadInt32(prop.Data) != 0; continue;
+                        case 9: if (has && prop.Format == Native.FormatDouble) _speed = ReadDouble(prop.Data); continue;
+                        case 10: _frameDrops = has && prop.Format == Native.FormatInt64 ? Marshal.ReadInt64(prop.Data) : 0; continue;
+                        case 11: _delayedFrames = has && prop.Format == Native.FormatInt64 ? Marshal.ReadInt64(prop.Data) : 0; continue;
+                        case 12:
+                            _trackList = has && prop.Format == Native.FormatString
+                                ? Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(prop.Data)) : null;
+                            continue;
+                    }
                     if (prop.Format != Native.FormatFlag || prop.Data == IntPtr.Zero) break;
                     var flag = Marshal.ReadInt32(prop.Data) != 0;
                     if (ev.ReplyUserdata == 1)
@@ -460,6 +495,7 @@ public sealed class MpvEngine : IDisposable
     // ---------------------------------------------------------------- libmpv helpers
 
     static byte[] U(string s) => Encoding.UTF8.GetBytes(s + "\0");
+    static double ReadDouble(IntPtr p) => BitConverter.Int64BitsToDouble(Marshal.ReadInt64(p));
 
     static void Check(int result, string what)
     {
@@ -468,33 +504,11 @@ public sealed class MpvEngine : IDisposable
 
     void SetOption(string name, string value) => Native.mpv_set_option_string(_ctx, U(name), U(value));
 
-    void SetProperty(string name, string value)
-    {
-        if (_initialized) Native.mpv_set_property_string(_ctx, U(name), U(value));
-    }
+    // The UI never waits for mpv: a synchronous call waits until mpv's core is free, which while it
+    // switches files took up to 50-220 ms (measured) and stalled the controls' animations. Requests are
+    // queued instead and run in order; values the UI reads come from observed properties.
+    void SetProperty(string name, string value) => CommandAsync("set", name, value);
 
-    double GetDouble(string name)
-    {
-        if (!_initialized) return 0;
-        return Native.mpv_get_property_double(_ctx, U(name), Native.FormatDouble, out var v) >= 0 ? v : 0;
-    }
-
-    string? GetString(string name)
-    {
-        if (!_initialized) return null;
-        var p = Native.mpv_get_property_string(_ctx, U(name));
-        if (p == IntPtr.Zero) return null;
-        try { return Marshal.PtrToStringUTF8(p); }
-        finally { Native.mpv_free(p); }
-    }
-
-    bool GetFlag(string name)
-    {
-        if (!_initialized) return false;
-        return Native.mpv_get_property_flag(_ctx, U(name), Native.FormatFlag, out var v) >= 0 && v != 0;
-    }
-
-    int Command(params string[] args) => WithArgs(args, a => Native.mpv_command(_ctx, a));
     int CommandAsync(params string[] args) => !_initialized ? -1 : WithArgs(args, a => Native.mpv_command_async(_ctx, 0, a));
 
     static int WithArgs(string[] args, Func<IntPtr[], int> call)
@@ -526,8 +540,8 @@ public sealed class MpvEngine : IDisposable
     {
         const string Lib = "libmpv-2.dll";
 
-        public const int FormatFlag = 3, FormatInt64 = 4, FormatDouble = 5;
-        public const int EventShutdown = 1, EventEndFile = 7, EventFileLoaded = 8, EventPropertyChange = 22;
+        public const int FormatString = 1, FormatFlag = 3, FormatInt64 = 4, FormatDouble = 5;
+        public const int EventShutdown = 1, EventStartFile = 6, EventEndFile = 7, EventFileLoaded = 8, EventPropertyChange = 22;
         public const int EndReasonStop = 2, EndReasonQuit = 3, EndReasonError = 4;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -544,16 +558,8 @@ public sealed class MpvEngine : IDisposable
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mpv_terminate_destroy(IntPtr ctx);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mpv_wakeup(IntPtr ctx);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mpv_set_option_string(IntPtr ctx, byte[] name, byte[] value);
-        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mpv_set_property_string(IntPtr ctx, byte[] name, byte[] value);
-        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr mpv_get_property_string(IntPtr ctx, byte[] name);
-        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern void mpv_free(IntPtr data);
-        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "mpv_get_property")]
-        public static extern int mpv_get_property_double(IntPtr ctx, byte[] name, int format, out double value);
-        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "mpv_get_property")]
-        public static extern int mpv_get_property_flag(IntPtr ctx, byte[] name, int format, out int value);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mpv_set_property_async(IntPtr ctx, ulong userdata, byte[] name, int format, ref double value);
-        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mpv_command(IntPtr ctx, IntPtr[] args);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mpv_command_async(IntPtr ctx, ulong userdata, IntPtr[] args);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern int mpv_observe_property(IntPtr ctx, ulong userdata, byte[] name, int format);
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr mpv_wait_event(IntPtr ctx, double timeout);
