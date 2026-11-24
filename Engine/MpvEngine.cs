@@ -119,21 +119,54 @@ public sealed class MpvEngine : IDisposable
         LastSeekTick = Environment.TickCount64;
         ApplyTrackPreferences();
         // Damaged clips are read with their fake parameter sets neutralised (see DamagedVideo). The check
-        // reads the file's index, which can take a second on a cold disk, so it runs off the UI thread;
-        // if another file is opened (or playback stops) meanwhile, its result is dropped
+        // walks every frame, which reads practically the whole file: measured 24-27 s for a 3-3.5 GB film
+        // on a cold hard disk (0.35 s once cached). Playback no longer waits for it: if the check is not
+        // done within a moment (short clips usually are), the file opens as it is and is reopened patched,
+        // at the same position, only if the check finds anything. Reading the disk alongside did not slow
+        // playback's reads (measured). If another file is opened (or playback stops), the check is cancelled.
         int request;
-        lock (_openLock) request = ++_openRequest;
-        Task.Run(() =>
+        CancellationTokenSource cts;
+        lock (_openLock)
         {
-            var patches = DamagedVideo.FakeParameterSets(path);
-            var url = patches != null ? PatchedStream.Url(path, patches) : path;
+            request = ++_openRequest;
+            _scanCts?.Cancel();
+            _scanCts = cts = new CancellationTokenSource();
+        }
+        Task.Run(async () =>
+        {
+            var scan = Task.Run(() => DamagedVideo.FakeParameterSets(path, cts.Token));
+            if (await Task.WhenAny(scan, Task.Delay(QuickScanMs)) != scan)
+            {
+                Load(path);
+                var patches = await scan;
+                if (patches == null) return;
+                lock (_openLock)
+                {
+                    if (request != _openRequest || _disposed) return;
+                    var pos = (_loaded ? GetDouble("time-pos") : 0).ToString("0.000", CultureInfo.InvariantCulture);
+                    Command("loadfile", PatchedStream.Url(path, patches), "replace", "-1", "start=" + pos);
+                }
+            }
+            else
+            {
+                var patches = scan.Result;
+                Load(patches != null ? PatchedStream.Url(path, patches) : path);
+            }
+        });
+
+        void Load(string url)
+        {
             lock (_openLock)
                 if (request == _openRequest && !_disposed) Command("loadfile", url, "replace");
-        });
+        }
     }
+
+    /// <summary>How long opening waits for the damaged-clip check before playing the file as it is.</summary>
+    const int QuickScanMs = 300;
 
     readonly object _openLock = new();
     int _openRequest;
+    CancellationTokenSource? _scanCts;
 
     // ---------------------------------------------------------------- Subtitle and audio tracks
 
@@ -272,7 +305,7 @@ public sealed class MpvEngine : IDisposable
 
     public void Stop()
     {
-        lock (_openLock) _openRequest++;
+        lock (_openLock) { _openRequest++; _scanCts?.Cancel(); }
         if (_initialized) Command("stop");
     }
 
@@ -481,7 +514,7 @@ public sealed class MpvEngine : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        lock (_openLock) _disposed = true;
+        lock (_openLock) { _disposed = true; _scanCts?.Cancel(); }
         // If mpv is destroyed while the event loop waits in mpv_wait_event, it crashes;
         // wake it up first and wait for the loop to finish
         Native.mpv_wakeup(_ctx);

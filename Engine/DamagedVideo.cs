@@ -20,7 +20,7 @@ public static class DamagedVideo
     /// File offsets (ascending) of the header bytes of in-band SPS/PPS NAL units that differ from the ones
     /// in the file header, or null if there are none or the file is not an H.264 (avc1) MP4.
     /// </summary>
-    public static long[]? FakeParameterSets(string path)
+    public static long[]? FakeParameterSets(string path, CancellationToken cancel = default)
     {
         try
         {
@@ -32,7 +32,11 @@ public static class DamagedVideo
 
             var found = new List<long>();
             var hdr = new byte[5];
-            for (int i = 0; i < t.Sizes.Length; i++) Scan(fs, t, t.Offsets[i], t.Sizes[i], hdr, found);
+            for (int i = 0; i < t.Sizes.Length; i++)
+            {
+                if (cancel.IsCancellationRequested) return null;
+                Scan(fs, t, t.Offsets[i], t.Sizes[i], hdr, found);
+            }
             return found.Count > 0 ? found.ToArray() : null;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or IndexOutOfRangeException)
